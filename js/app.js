@@ -254,15 +254,58 @@ function StaffApp() {
       </main>
 
       <main className="p-4 pb-28" style={{display: tab === "settings" ? "block" : "none"}}>
-        <section className="space-y-4">
-          <Input label={"\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9"} value={email} onChange={setEmail} placeholder="example@gmail.com" />
-          <Input label={"\u30b9\u30bf\u30c3\u30d5\u540d"} value={staffName} onChange={function(){}} placeholder="" disabled={true} />
-
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={handleSync} className="flex-1 px-4 py-3 rounded-xl bg-blue-500 text-white font-semibold shadow-sm">{"\u540c\u671f"}</button>
-            <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
+        <section className="space-y-5">
+          {/* スタッフ情報 */}
+          <div>
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">{"\u30b9\u30bf\u30c3\u30d5\u60c5\u5831"}</h2>
+            <div className="space-y-3">
+              <Input label={"\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9"} value={email} onChange={setEmail} placeholder="example@gmail.com" />
+              <Input label={"\u30b9\u30bf\u30c3\u30d5\u540d"} value={staffName} onChange={function(){}} placeholder="" disabled={true} />
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={handleSync} className="flex-1 px-4 py-3 rounded-xl bg-blue-500 text-white font-semibold shadow-sm">{"\u540c\u671f"}</button>
+                <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
+              </div>
+            </div>
           </div>
 
+          {/* LINE連携 */}
+          <div>
+            <h2 className="text-sm font-semibold text-gray-800 mb-2">{"LINE\u9023\u643a"}</h2>
+            <div className="rounded-xl border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{"\u30b9\u30c6\u30fc\u30bf\u30b9"}</span>
+                <span className={"text-sm font-semibold " + (LS.get("lineUid") ? "text-green-600" : "text-gray-400")}>
+                  {LS.get("lineUid") ? "\u9023\u643a\u6e08\u307f" : "\u672a\u9023\u643a"}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {"LINE\u516c\u5f0f\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u53cb\u3060\u3061\u8ffd\u52a0\u3059\u308b\u3068\u3001\u4ee5\u4e0b\u306e\u901a\u77e5\u304c\u5c4a\u304d\u307e\u3059\u3002"}
+              </div>
+              <ul className="text-xs text-gray-600 space-y-1 ml-3">
+                <li>{"\u2022 \u30b7\u30d5\u30c8\u63d0\u51fa\u6642\u306e\u78ba\u8a8d\u901a\u77e5"}</li>
+                <li>{"\u2022 \u30b7\u30d5\u30c8\u78ba\u5b9a\u6642\u306e\u304a\u77e5\u3089\u305b"}</li>
+                <li>{"\u2022 \u30b7\u30d5\u30c8\u7de0\u5207\u524d\u65e5\uff0819\u65e5\uff09\u306e\u30ea\u30de\u30a4\u30f3\u30c0\u30fc"}</li>
+                <li>{"\u2022 \u51fa\u52e4\u30fb\u9000\u52e4\u6642\u306e\u8a18\u9332\u901a\u77e5"}</li>
+              </ul>
+              {CONFIG.LIFF_ID && CONFIG.LIFF_ID !== "YOUR_LIFF_ID" ? (
+                <button onClick={function(){
+                  if (typeof liff !== "undefined" && liff.isLoggedIn && liff.isLoggedIn()) {
+                    toast("LINE\u9023\u643a\u6e08\u307f\u3067\u3059");
+                  } else if (typeof liff !== "undefined") {
+                    liff.login();
+                  } else {
+                    toast("LINE\u30a2\u30d7\u30ea\u304b\u3089\u958b\u3044\u3066\u304f\u3060\u3055\u3044");
+                  }
+                }} className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold shadow-sm">
+                  {"LINE\u3067\u30ed\u30b0\u30a4\u30f3"}
+                </button>
+              ) : (
+                <div className="text-xs text-gray-400 text-center py-2">
+                  {"LINE\u9023\u643a\u306f\u7ba1\u7406\u8005\u304c\u8a2d\u5b9a\u5f8c\u306b\u5229\u7528\u3067\u304d\u307e\u3059"}
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       </main>
 

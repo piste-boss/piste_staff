@@ -164,6 +164,92 @@ function notifyShiftConfirmed_(lineUid, staffName, month) {
   sendLinePush_(lineUid, msg);
 }
 
+/** シフト提出確認通知（スタッフ向け） */
+function notifyShiftSubmittedToStaff_(tenantId, staffId, staffName, month, count) {
+  var uid = getLineUidByStaffId_(tenantId, staffId);
+  if (!uid) return;
+  var msg = (staffName || "") + "\u3055\u3093\u3001" + month + "\u306e\u30b7\u30d5\u30c8\u3092" + count + "\u4ef6\u63d0\u51fa\u3057\u307e\u3057\u305f\u3002";
+  sendLinePush_(uid, msg);
+}
+
+/** 出勤通知（スタッフ向け） */
+function notifyClockIn_(tenantId, staffId, staffName, clockInTime) {
+  var uid = getLineUidByStaffId_(tenantId, staffId);
+  if (!uid) return;
+  var time = String(clockInTime || "").slice(11, 16); // HH:mm
+  var msg = (staffName || "") + "\u3055\u3093\u306e\u51fa\u52e4\u3092\u8a18\u9332\u3057\u307e\u3057\u305f\u3002\n\u51fa\u52e4\u6642\u523b: " + time;
+  sendLinePush_(uid, msg);
+}
+
+/** 退勤通知（スタッフ向け） */
+function notifyClockOut_(tenantId, staffId, staffName, clockInTime, clockOutTime, payroll) {
+  var uid = getLineUidByStaffId_(tenantId, staffId);
+  if (!uid) return;
+  var inTime = String(clockInTime || "").slice(11, 16);
+  var outTime = String(clockOutTime || "").slice(11, 16);
+  var hours = payroll && payroll.hours ? Number(payroll.hours).toFixed(2) : "0";
+  var amount = payroll && payroll.amount ? payroll.amount : 0;
+  var msg = (staffName || "") + "\u3055\u3093\u306e\u9000\u52e4\u3092\u8a18\u9332\u3057\u307e\u3057\u305f\u3002\n" +
+    "\u51fa\u52e4: " + inTime + " \u2192 \u9000\u52e4: " + outTime + "\n" +
+    "\u52e4\u52d9\u6642\u9593: " + hours + "h / " + amount + "\u5186";
+  sendLinePush_(uid, msg);
+}
+
+/** スタッフIDからLINE UIDを取得するヘルパー */
+function getLineUidByStaffId_(tenantId, staffId) {
+  var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
+  if (!sh) return "";
+  var hm = headerMap_(sh);
+  var colTID = hm.find(["\u30c6\u30ca\u30f3\u30c8ID", "tenantId"], true);
+  var colSID = hm.find(["\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
+  var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
+  if (colUID < 0) return "";
+  var last = sh.getLastRow();
+  if (last < 2) return "";
+  var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var tid = ztrim(String(vals[i][colTID - 1] || ""));
+    var sid = String(vals[i][colSID - 1] || "");
+    if (tid === tenantId && sid === staffId) {
+      return String(vals[i][colUID - 1] || "").trim();
+    }
+  }
+  return "";
+}
+
+/*************************
+ * シフト締切リマインダー（毎月19日に実行）
+ * GASエディタで時限トリガー設定:
+ *   関数: sendShiftDeadlineReminder
+ *   種類: 時間主導型 → 月ベースのタイマー → 19日 → 午前9時〜10時
+ *************************/
+function sendShiftDeadlineReminder() {
+  var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
+  if (!sh) return;
+  var hm = headerMap_(sh);
+  var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
+  var colNM  = hm.find(["\u540d\u524d", "name"], false);
+  if (colUID < 0) return;
+
+  var last = sh.getLastRow();
+  if (last < 2) return;
+
+  // 翌月の年月を計算
+  var now = new Date();
+  var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  var ym = Utilities.formatDate(nextMonth, "Asia/Tokyo", "yyyy-MM");
+
+  var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var uid = String(vals[i][colUID - 1] || "").trim();
+    var name = colNM > 0 ? String(vals[i][colNM - 1] || "") : "";
+    if (!uid) continue;
+    var msg = (name ? name + "\u3055\u3093\u3001" : "") +
+      "\u660e\u65e5\u304c" + ym + "\u306e\u30b7\u30d5\u30c8\u63d0\u51fa\u7de0\u5207\u3067\u3059\u3002\n\u307e\u3060\u63d0\u51fa\u3057\u3066\u3044\u306a\u3044\u5834\u5408\u306f\u3001\u4eca\u65e5\u4e2d\u306b\u63d0\u51fa\u3057\u3066\u304f\u3060\u3055\u3044\u3002";
+    sendLinePush_(uid, msg);
+  }
+}
+
 /** トークン取得 */
 function getLineToken_() {
   return PropertiesService.getScriptProperties().getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "";

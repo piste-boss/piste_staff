@@ -328,6 +328,10 @@ function handleClockIn_(e, p) {
   var hourly = getHourlyFromStaff_(tid, sid) || 0;
   if (colHW>0) { sh.getRange(row, colHW).setNumberFormat("0"); sh.getRange(row, colHW).setValue(hourly); }
   sh.getRange(row, colIN ).setValue(inAt);
+
+  // LINE通知：スタッフに出勤記録を通知
+  try { notifyClockIn_(tid, sid, name, inAt); } catch (_) {}
+
   return out_(e, { ok:true, saved:1 });
 }
 
@@ -433,6 +437,9 @@ function handleClockOut_(e, p) {
       pay.getRange(prow, pAMT ).setValue(pr.amount);
       if (pTS>0)   pay.getRange(prow, pTS ).setValue(ts);
 
+      // LINE通知：スタッフに退勤記録を通知
+      try { notifyClockOut_(tid, sid, nm || name, inAt, outAt, pr); } catch (_) {}
+
       return out_(e, { ok:true, updatedRow: rowIdx, minutes: pr.minsRounded, hours: pr.hours, amount: pr.amount });
     }
   }
@@ -461,7 +468,9 @@ function handleSubmitShifts_(e, p) {
   if (rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, 8).setValues(rows);
 
   // LINE通知：管理者にシフト提出を通知
+  // LINE通知：管理者にシフト提出を通知 & スタッフに提出確認を通知
   try { notifyShiftSubmitted_(name || sid, month); } catch (_) {}
+  try { notifyShiftSubmittedToStaff_(tid, sid, name, month, rows.length); } catch (_) {}
 
   return out_(e, { ok:true, saved: rows.length });
 }
