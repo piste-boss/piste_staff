@@ -211,9 +211,10 @@ function handleSyncStaff_(e, p) {
   var tid = ztrim(String(p.tenantId || p["テナントID"] || ""));
   var sid = ztrim(String(p.staffId  || p["スタッフID"] || ""));
   var lineUid = ztrim(String(p.lineUid || p["lineUid"] || ""));
+  var emailParam = ztrim(String(p.email || p["メール"] || p["メールアドレス"] || "")).toLowerCase();
 
-  // lineUid でも staffId でも検索可能にする
-  if (!lineUid && (!tid || !sid)) return out_(e, { ok:false, error:"tenantId+staffId or lineUid required" });
+  // いずれかの識別子が必要
+  if (!emailParam && !lineUid && (!tid || !sid)) return out_(e, { ok:false, error:"email, staffId, or lineUid required" });
 
   var sh = getDB_().getSheetByName("スタッフ");
   if (!sh) return out_(e, { ok:false, error:"シート「スタッフ」がありません" });
@@ -225,6 +226,7 @@ function handleSyncStaff_(e, p) {
   var colHW   = hm.find(["時給","hourly","hourlyWage"], false);
   var colINIT = hm.find(["初期表示","初期表示シフト","initialView","defaultView"], false);
   var colUID  = hm.find(["LINE UID","lineUid","LINE_UID"], false);
+  var colEmail = hm.find(["メール","メールアドレス","email","Email","mail"], false);
 
   var last = sh.getLastRow(), lastCol = sh.getLastColumn();
   if (last < 2) return out_(e, { ok:false, error:"台帳が空です" });
@@ -242,13 +244,19 @@ function handleSyncStaff_(e, p) {
     var tA2 = ztrim(String(r[colTID-1] || ""));
     var tB2 = ztrim(String(r[colSID-1] || ""));
     var rowUid = colUID > 0 ? ztrim(String(r[colUID-1] || "")) : "";
+    var rowEmail = colEmail > 0 ? ztrim(String(r[colEmail-1] || "")).toLowerCase() : "";
 
-    // LINE UID での照合 or テナント+スタッフID での照合
+    // メールアドレス / LINE UID / テナント+スタッフID で照合
     var matched = false;
-    if (lineUid && rowUid === lineUid) {
+    if (emailParam && rowEmail && rowEmail === emailParam) {
+      matched = true;
+    } else if (lineUid && rowUid === lineUid) {
       matched = true;
     } else if (tid && sid && tA2 === tid && tB2 === sid) {
       matched = true;
+    }
+
+    if (matched) {
       // lineUid が送られてきていて未記録なら書き込み
       if (lineUid && colUID > 0 && !rowUid) {
         sh.getRange(2 + j, colUID).setValue(lineUid);

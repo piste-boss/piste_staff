@@ -39,7 +39,7 @@ function StaffApp() {
   var [tab, setTab] = useState("home");
   var [staffId, setStaffId] = useState(LS.get("staffId") || "");
   var [staffName, setStaffName] = useState(LS.get("staffName") || "");
-  var [editStaffId, setEditStaffId] = useState(LS.get("staffId") || "");
+  var [email, setEmail] = useState(LS.get("email") || "");
   var [pendingCount, setPendingCount] = useState(0);
   var [loading, setLoading] = useState(true);
   var calContainerRef = useRef(null);
@@ -150,29 +150,29 @@ function StaffApp() {
     }
   }
 
-  // スタッフ同期（JSONP優先でCORS回避）
+  // スタッフ同期（メールアドレスで検索、JSONP優先でCORS回避）
   async function handleSync() {
-    var sid = ztrim(editStaffId);
-    if (!sid) return toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044");
+    var addr = ztrim(email);
+    if (!addr) return toast("\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044");
     toast("\u540c\u671f\u4e2d\u2026");
     try {
-      // JSONP で直接取得（CORS回避）
       var r = await getJSONPExec(CONFIG.GAS_EXEC_URL, {
         type: "syncStaff",
         tenantId: CONFIG.TENANT_ID,
-        staffId: sid,
+        email: addr,
       });
       if (r && r.ok) {
         var name = String(r.name || "");
+        var sid = String(r.staffId || "");
         if (name) { setStaffName(name); LS.set("staffName", name); }
-        setStaffId(sid); LS.set("staffId", sid);
-        setEditStaffId(sid);
+        if (sid) { setStaffId(sid); LS.set("staffId", sid); }
+        LS.set("email", addr);
         // 初期表示シフトを保存 & カレンダーに反映
         var dw = String(r.defaultWish || r.initialView || "").trim();
         dw = (dw === "1" || dw === "2") ? dw : "";
         LS.set("defaultWishOtherDays", dw);
         ShiftCalendar.applyDefaultShifts(dw);
-        toast("\u540c\u671f\u3057\u307e\u3057\u305f\uff1a" + (name || sid));
+        toast("\u540c\u671f\u3057\u307e\u3057\u305f\uff1a" + (name || addr));
       } else {
         toast("\u540c\u671f\u5931\u6557\uff1a" + (r && r.error ? r.error : "\u30b9\u30bf\u30c3\u30d5\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093"));
       }
@@ -183,8 +183,8 @@ function StaffApp() {
 
   // 設定リセット
   function handleReset() {
-    LS.del("staffId"); LS.del("staffName"); LS.del("lineUid"); LS.del("defaultWishOtherDays");
-    setStaffId(""); setStaffName(""); setEditStaffId("");
+    LS.del("staffId"); LS.del("staffName"); LS.del("lineUid"); LS.del("defaultWishOtherDays"); LS.del("email");
+    setStaffId(""); setStaffName(""); setEmail("");
     toast("\u4fdd\u5b58\u5024\u3092\u30ea\u30bb\u30c3\u30c8\u3057\u307e\u3057\u305f");
   }
 
@@ -255,17 +255,11 @@ function StaffApp() {
 
       <main className="p-4 pb-28" style={{display: tab === "settings" ? "block" : "none"}}>
         <section className="space-y-4">
-          <Input label={"\u30b9\u30bf\u30c3\u30d5ID"} value={editStaffId} onChange={setEditStaffId} placeholder="staff-001" />
+          <Input label={"\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9"} value={email} onChange={setEmail} placeholder="example@gmail.com" />
           <Input label={"\u30b9\u30bf\u30c3\u30d5\u540d"} value={staffName} onChange={function(){}} placeholder="" disabled={true} />
 
           <div className="flex gap-2 flex-wrap">
-            <button onClick={function(){
-              var sid = ztrim(editStaffId);
-              if (!sid) { toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044"); return; }
-              setStaffId(sid); LS.set("staffId", sid);
-              toast("\u4fdd\u5b58\u3057\u307e\u3057\u305f");
-              handleSync();
-            }} className="flex-1 px-4 py-3 rounded-xl bg-blue-500 text-white font-semibold shadow-sm">{"\u4fdd\u5b58\u30fb\u540c\u671f"}</button>
+            <button onClick={handleSync} className="flex-1 px-4 py-3 rounded-xl bg-blue-500 text-white font-semibold shadow-sm">{"\u540c\u671f"}</button>
             <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
           </div>
 
