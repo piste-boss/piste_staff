@@ -18,15 +18,23 @@ export default async (request) => {
   try {
     const body = await request.text();
 
-    // GAS に転送（fetch はリダイレクトを自動追従する）
-    const gasResponse = await fetch(GAS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-      redirect: "follow",
-    });
+    // GAS に転送（302リダイレクトを手動追従してPOSTメソッドを維持する）
+    let url = GAS_URL;
+    let gasResponse;
+    for (let i = 0; i < 5; i++) {
+      gasResponse = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body,
+        redirect: "manual",
+      });
+      if (gasResponse.status >= 300 && gasResponse.status < 400) {
+        url = gasResponse.headers.get("location");
+        if (!url) break;
+        continue;
+      }
+      break;
+    }
 
     const responseText = await gasResponse.text();
 
