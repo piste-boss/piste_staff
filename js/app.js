@@ -148,13 +148,14 @@ function StaffApp() {
     }
   }
 
-  // スタッフ同期
+  // スタッフ同期（JSONP優先でCORS回避）
   async function handleSync() {
     var sid = ztrim(editStaffId);
     if (!sid) return toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044");
     toast("\u540c\u671f\u4e2d\u2026");
     try {
-      var r = await sendGAS({
+      // JSONP で直接取得（CORS回避）
+      var r = await getJSONPExec(CONFIG.GAS_EXEC_URL, {
         type: "syncStaff",
         tenantId: CONFIG.TENANT_ID,
         staffId: sid,
@@ -163,6 +164,7 @@ function StaffApp() {
         var name = String(r.name || "");
         if (name) { setStaffName(name); LS.set("staffName", name); }
         setStaffId(sid); LS.set("staffId", sid);
+        setEditStaffId(sid);
         toast("\u540c\u671f\u3057\u307e\u3057\u305f\uff1a" + (name || sid));
       } else {
         toast("\u540c\u671f\u5931\u6557\uff1a" + (r && r.error ? r.error : "\u30b9\u30bf\u30c3\u30d5\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093"));
@@ -256,8 +258,8 @@ function StaffApp() {
               if (!sid) { toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044"); return; }
               setStaffId(sid); LS.set("staffId", sid);
               toast("\u4fdd\u5b58\u3057\u307e\u3057\u305f");
-            }} className="px-4 py-3 rounded-xl border shadow-sm font-semibold">{"\u4fdd\u5b58"}</button>
-            <button onClick={handleSync} className="px-4 py-3 rounded-xl border shadow-sm font-semibold">{"\u540c\u671f"}</button>
+              handleSync();
+            }} className="flex-1 px-4 py-3 rounded-xl bg-blue-500 text-white font-semibold shadow-sm">{"\u4fdd\u5b58\u30fb\u540c\u671f"}</button>
             <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
           </div>
 
