@@ -13,6 +13,7 @@ body {
 /* FullCalendar カスタム */
 .fc {
   font-size: 14px;
+  overflow: visible;
 }
 .fc .fc-toolbar-title {
   font-size: 1.1rem;
@@ -22,6 +23,12 @@ body {
   padding: 6px 12px;
   border-radius: 10px;
   font-size: 13px;
+}
+.fc .fc-scrollgrid {
+  overflow: visible;
+}
+.fc .fc-scroller {
+  overflow: visible !important;
 }
 .fc .fc-daygrid-day {
   cursor: pointer;
@@ -33,6 +40,33 @@ body {
   border-radius: 6px;
   font-size: 11px;
   padding: 1px 4px;
+}
+
+/* 曜日カラー：土曜日＝水色 */
+.fc .fc-day-sat {
+  background-color: #e0f2fe;
+}
+.fc .fc-col-header-cell.fc-day-sat {
+  background-color: #bae6fd;
+  color: #0284c7;
+}
+
+/* 曜日カラー：日曜日＝ピンク */
+.fc .fc-day-sun {
+  background-color: #fce7f3;
+}
+.fc .fc-col-header-cell.fc-day-sun {
+  background-color: #fbcfe8;
+  color: #be185d;
+}
+
+/* 曜日カラー：月曜日＝ピンク */
+.fc .fc-day-mon {
+  background-color: #fce7f3;
+}
+.fc .fc-col-header-cell.fc-day-mon {
+  background-color: #fbcfe8;
+  color: #be185d;
 }
 
 /* シフトモーダル */

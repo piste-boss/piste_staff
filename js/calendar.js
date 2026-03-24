@@ -15,9 +15,9 @@ var ShiftCalendar = (function () {
 
   /** 色定義 */
   var SHIFT_COLORS = {
-    "1": { bg: "#3b82f6", border: "#2563eb", text: "早番" },
-    "2": { bg: "#22c55e", border: "#16a34a", text: "遅番" },
-    "×": { bg: "#ef4444", border: "#dc2626", text: "休" },
+    "1": { bg: "#3b82f6", border: "#2563eb", text: "9:30\u301c" },
+    "2": { bg: "#22c55e", border: "#16a34a", text: "10:00\u301c" },
+    "×": { bg: "#ef4444", border: "#dc2626", text: "\u4f11" },
   };
 
   /** FullCalendar 初期化 */
@@ -118,9 +118,9 @@ var ShiftCalendar = (function () {
     card.appendChild(title);
 
     var choices = [
-      { value: "1", label: "1（早番）", color: "bg-blue-500" },
-      { value: "2", label: "2（遅番）", color: "bg-green-500" },
-      { value: "×", label: "×（休）", color: "bg-red-500" },
+      { value: "1", label: "1\uff089:30\u301c\uff09", color: "bg-blue-500" },
+      { value: "2", label: "2\uff0810:00\u301c\uff09", color: "bg-green-500" },
+      { value: "×", label: "\u00d7\uff08\u4f11\uff09", color: "bg-red-500" },
       { value: "", label: "取消", color: "bg-gray-400" },
     ];
 

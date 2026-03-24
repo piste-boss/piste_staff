@@ -643,7 +643,7 @@ function createCalendarEvents_(staffName, rows) {
     var wish = String(rows[i][5] || "");    // 希望列 (F)
     if (!dateStr || !wish) continue;
 
-    var label = wish === "1" ? "早番" : wish === "2" ? "遅番" : wish === "×" ? "休" : wish;
+    var label = wish === "1" ? "9:30\u301c" : wish === "2" ? "10:00\u301c" : wish === "\u00d7" ? "\u4f11" : wish;
     var title = staffName + " " + label;
 
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);

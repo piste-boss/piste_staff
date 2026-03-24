@@ -4,7 +4,7 @@
  *************************/
 const CONFIG = {
   // GAS WebApp URL（デプロイ後に差し替え）
-  GAS_EXEC_URL: "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+  GAS_EXEC_URL: "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJVA6u5EpSKptrexvvqYh8jMSYiLIjprgXNOleAf2uWRbMyWg/exec",
 
   // LIFF ID（LINE Developers Console で取得）
   LIFF_ID: "YOUR_LIFF_ID",

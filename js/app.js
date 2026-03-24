@@ -153,10 +153,10 @@ function StaffApp() {
         {/* 凡例 */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 mb-3">
           <span className="inline-flex items-center gap-1">
-            <i className="w-3 h-3 rounded inline-block" style={{backgroundColor: "#3b82f6"}}/>{"1: \u65e9\u756a"}
+            <i className="w-3 h-3 rounded inline-block" style={{backgroundColor: "#3b82f6"}}/>{"1: 9:30\u301c"}
           </span>
           <span className="inline-flex items-center gap-1">
-            <i className="w-3 h-3 rounded inline-block" style={{backgroundColor: "#22c55e"}}/>{"2: \u904e\u756a"}
+            <i className="w-3 h-3 rounded inline-block" style={{backgroundColor: "#22c55e"}}/>{"2: 10:00\u301c"}
           </span>
           <span className="inline-flex items-center gap-1">
             <i className="w-3 h-3 rounded inline-block" style={{backgroundColor: "#ef4444"}}/>{"\u00d7: \u4f11"}
