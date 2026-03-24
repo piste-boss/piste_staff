@@ -26,7 +26,20 @@ function doPost(e) {
   }
   return handle_(e, /*isGet=*/false);
 }
-function doGet(e)  { return handle_(e, /*isGet=*/true); }
+function doGet(e) {
+  // LINE Webhook プロキシ経由: ?lineWebhook=base64encodedJSON
+  try {
+    var lw = (e && e.parameter && e.parameter.lineWebhook) ? e.parameter.lineWebhook : "";
+    if (lw) {
+      var decoded = Utilities.newBlob(Utilities.base64Decode(lw)).getDataAsString();
+      var body = JSON.parse(decoded);
+      if (body.events && Array.isArray(body.events)) {
+        return handleLineWebhook_(e, body);
+      }
+    }
+  } catch (_) {}
+  return handle_(e, /*isGet=*/true);
+}
 
 /** WebApp 入口（JSON/JSONP） */
 function handle_(e, isGet) {
