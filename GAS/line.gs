@@ -88,15 +88,8 @@ function handleLineMessage_(ev) {
   var uid = ev.source && ev.source.userId ? ev.source.userId : "";
   var text = String(ev.message.text || "").trim();
 
-  // プロキシ経由ではreplyTokenが期限切れのため、pushで送信する
-  // replyTokenが有効な場合はreplyを試み、失敗時はpushにフォールバック
+  // プロキシ経由ではreplyTokenが期限切れのため、常にpushで送信する
   function reply(msg) {
-    if (ev.replyToken) {
-      try {
-        sendLineReply_(ev.replyToken, msg);
-        return;
-      } catch (_) {}
-    }
     sendLinePush_(uid, msg);
   }
 
