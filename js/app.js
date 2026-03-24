@@ -237,10 +237,11 @@ function StaffApp() {
         tenantId: CONFIG.TENANT_ID,
         email: addr,
       });
+      console.log("syncStaff response:", JSON.stringify(r));
       if (r && r.ok) {
         var name = String(r.name || "");
         var sid = String(r.staffId || r.email || addr);
-        setStaffName(name); LS.set("staffName", name);
+        if (name) { setStaffName(name); LS.set("staffName", name); }
         setStaffId(sid); LS.set("staffId", sid);
         setEmail(addr); LS.set("email", addr);
         // 初期表示シフトを保存 & カレンダーに反映
