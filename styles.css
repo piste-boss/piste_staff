@@ -1,0 +1,41 @@
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  background: #f8fafc;
+  color: #111827;
+}
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* FullCalendar カスタム */
+.fc {
+  font-size: 14px;
+}
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.fc .fc-button {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.fc .fc-daygrid-day {
+  cursor: pointer;
+}
+.fc .fc-daygrid-day:hover {
+  background: #f3f4f6;
+}
+.fc .fc-event {
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 1px 4px;
+}
+
+/* シフトモーダル */
+#shift-modal button:active {
+  transform: scale(0.97);
+}
