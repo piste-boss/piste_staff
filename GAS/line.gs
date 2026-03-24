@@ -195,22 +195,23 @@ function notifyClockOut_(tenantId, staffId, staffName, clockInTime, clockOutTime
   sendLinePush_(uid, msg);
 }
 
-/** スタッフIDからLINE UIDを取得するヘルパー */
+/** メール(=staffId)からLINE UIDを取得するヘルパー */
 function getLineUidByStaffId_(tenantId, staffId) {
   var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
   if (!sh) return "";
   var hm = headerMap_(sh);
   var colTID = hm.find(["\u30c6\u30ca\u30f3\u30c8ID", "tenantId"], true);
-  var colSID = hm.find(["\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
+  var colEmail = hm.find(["\u30e1\u30fc\u30eb", "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9", "email", "Email", "mail", "\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
   var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
   if (colUID < 0) return "";
   var last = sh.getLastRow();
   if (last < 2) return "";
   var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  var target = String(staffId || "").toLowerCase().trim();
   for (var i = 0; i < vals.length; i++) {
     var tid = ztrim(String(vals[i][colTID - 1] || ""));
-    var sid = String(vals[i][colSID - 1] || "");
-    if (tid === tenantId && sid === staffId) {
+    var rowEmail = String(vals[i][colEmail - 1] || "").toLowerCase().trim();
+    if (tid === tenantId && rowEmail === target) {
       return String(vals[i][colUID - 1] || "").trim();
     }
   }
@@ -265,10 +266,10 @@ function getStaffByLineUid_(lineUid) {
   var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
   if (colUID < 0) return null;
 
-  var colTID = hm.find(["\u30c6\u30ca\u30f3\u30c8ID", "tenantId"], true);
-  var colSID = hm.find(["\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
-  var colNM  = hm.find(["\u540d\u524d", "name"], false);
-  var colHW  = hm.find(["\u6642\u7d66", "hourly", "hourlyWage"], false);
+  var colTID   = hm.find(["\u30c6\u30ca\u30f3\u30c8ID", "tenantId"], true);
+  var colEmail = hm.find(["\u30e1\u30fc\u30eb", "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9", "email", "Email", "mail", "\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
+  var colNM    = hm.find(["\u540d\u524d", "name"], false);
+  var colHW    = hm.find(["\u6642\u7d66", "hourly", "hourlyWage"], false);
 
   var last = sh.getLastRow();
   if (last < 2) return null;
@@ -279,7 +280,8 @@ function getStaffByLineUid_(lineUid) {
     if (uid === lineUid) {
       return {
         tenantId: String(vals[i][colTID - 1] || ""),
-        staffId: String(vals[i][colSID - 1] || ""),
+        staffId: String(vals[i][colEmail - 1] || ""),
+        email: String(vals[i][colEmail - 1] || ""),
         name: colNM > 0 ? String(vals[i][colNM - 1] || "") : "",
         hourlyWage: colHW > 0 ? Number(vals[i][colHW - 1] || 0) : 0,
         lineUid: lineUid,

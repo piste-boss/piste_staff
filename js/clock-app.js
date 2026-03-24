@@ -5,7 +5,6 @@
 const { useEffect, useState, useRef } = React;
 
 function ClockApp() {
-  var [staffId, setStaffId] = useState(LS.get("staffId") || "");
   var [staffName, setStaffName] = useState(LS.get("staffName") || "");
   var [now, setNow] = useState(new Date());
   var [status, setStatus] = useState(""); // "出勤中" or ""
@@ -13,13 +12,12 @@ function ClockApp() {
   var [loading, setLoading] = useState(true);
   var timerRef = useRef(null);
 
-  // LIFF認証
+  // 認証（localStorageのemailを使用）
   useEffect(function () {
     (async function () {
       try {
         await Auth.init();
         var staff = Auth.getStaff();
-        if (staff.staffId) { setStaffId(staff.staffId); LS.set("staffId", staff.staffId); }
         if (staff.staffName) { setStaffName(staff.staffName); LS.set("staffName", staff.staffName); }
       } catch (e) {
         console.error("Auth init error:", e);
@@ -41,14 +39,15 @@ function ClockApp() {
 
   // 出勤
   async function handleClockIn() {
-    if (!staffId) return toast("\u30b9\u30bf\u30c3\u30d5ID\u304c\u672a\u8a2d\u5b9a\u3067\u3059");
+    var addr = LS.get("email") || "";
+    if (!addr) return toast("\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u304c\u672a\u8a2d\u5b9a\u3067\u3059\u3002\u30de\u30a4\u30da\u30fc\u30b8\u3067\u540c\u671f\u3057\u3066\u304f\u3060\u3055\u3044");
     var jst = formatJST(new Date());
     toast("\u51fa\u52e4\u6253\u523b\u4e2d\u2026");
     try {
       var r = await sendGASWrite({
         type: "clockIn",
         tenantId: CONFIG.TENANT_ID,
-        staffId: staffId,
+        email: addr,
         name: staffName || "",
         "\u51fa\u52e4\u6642\u523b": jst,
         "\u30bf\u30a4\u30e0\u30b9\u30bf\u30f3\u30d7": jst,
@@ -72,14 +71,15 @@ function ClockApp() {
 
   // 退勤
   async function handleClockOut() {
-    if (!staffId) return toast("\u30b9\u30bf\u30c3\u30d5ID\u304c\u672a\u8a2d\u5b9a\u3067\u3059");
+    var addr = LS.get("email") || "";
+    if (!addr) return toast("\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u304c\u672a\u8a2d\u5b9a\u3067\u3059\u3002\u30de\u30a4\u30da\u30fc\u30b8\u3067\u540c\u671f\u3057\u3066\u304f\u3060\u3055\u3044");
     var jst = formatJST(new Date());
     toast("\u9000\u52e4\u6253\u523b\u4e2d\u2026");
     try {
       var r = await sendGASWrite({
         type: "clockOut",
         tenantId: CONFIG.TENANT_ID,
-        staffId: staffId,
+        email: addr,
         name: staffName || "",
         "\u9000\u52e4\u6642\u523b": jst,
         "\u30bf\u30a4\u30e0\u30b9\u30bf\u30f3\u30d7": jst,

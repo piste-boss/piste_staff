@@ -66,15 +66,16 @@ function StaffApp() {
     })();
   }, []);
 
-  // 確定シフトをロード
+  // 確定シフトをロード（emailで検索）
   var loadConfirmedShifts = useCallback(async function (year, month0) {
-    if (!staffId) return;
+    var addr = email || LS.get("email") || "";
+    if (!addr) return;
     var monthKey = fmtYM(year, month0);
     try {
-      var r = await sendGAS({
+      var r = await getJSONPExec(CONFIG.GAS_EXEC_URL, {
         type: "getConfirmedShifts",
         tenantId: CONFIG.TENANT_ID,
-        staffId: staffId,
+        email: addr,
         month: monthKey,
         sheetName: "\u78ba\u5b9a\u30b7\u30d5\u30c8",
       });
@@ -84,7 +85,7 @@ function StaffApp() {
     } catch (e) {
       // 失敗は黙殺
     }
-  }, [staffId]);
+  }, [email]);
 
   // FullCalendar 初期化
   useEffect(function () {
@@ -115,7 +116,8 @@ function StaffApp() {
 
   // シフト提出
   async function handleSubmitShifts() {
-    if (!staffId) return toast("\u30b9\u30bf\u30c3\u30d5\u60c5\u5831\u304c\u672a\u8a2d\u5b9a\u3067\u3059");
+    var addr = email || LS.get("email") || "";
+    if (!addr) return toast("\u30de\u30a4\u30da\u30fc\u30b8\u3067\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u3092\u540c\u671f\u3057\u3066\u304f\u3060\u3055\u3044");
     var pending = ShiftCalendar.getPendingShifts();
     var items = Object.entries(pending).map(function (kv) {
       return { date: kv[0], wish: kv[1], status: "\u63d0\u51fa\u6e08\u307f" };
@@ -130,7 +132,7 @@ function StaffApp() {
       var r = await sendGASWrite({
         type: "submitShifts",
         tenantId: CONFIG.TENANT_ID,
-        staffId: staffId,
+        email: addr,
         name: staffName || "",
         month: monthKey,
         items: items,

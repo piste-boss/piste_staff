@@ -170,7 +170,7 @@ function handleState_(e, p) {
 
   var hm = headerMap_(sh);
   var colTID  = hm.find(["テナントID","tenantId"], true);
-  var colSID  = hm.find(["スタッフID","staffId","id"], true);
+  var colSID  = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM   = hm.find(["名前","name"], false);
   var colHW   = hm.find(["時給","hourly","hourlyWage"], false);
   var colINIT = hm.find(["初期表示","初期表示シフト","initialView","defaultView"], false); // 任意
@@ -221,12 +221,11 @@ function handleSyncStaff_(e, p) {
 
   var hm = headerMap_(sh);
   var colTID  = hm.find(["テナントID","tenantId"], true);
-  var colSID  = hm.find(["スタッフID","staffId","id"], true);
+  var colEmail = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM   = hm.find(["名前","name"], false);
   var colHW   = hm.find(["時給","hourly","hourlyWage"], false);
   var colINIT = hm.find(["初期表示","初期表示シフト","initialView","defaultView"], false);
   var colUID  = hm.find(["LINE UID","lineUid","LINE_UID"], false);
-  var colEmail = hm.find(["メール","メールアドレス","email","Email","mail"], false);
 
   var last = sh.getLastRow(), lastCol = sh.getLastColumn();
   if (last < 2) return out_(e, { ok:false, error:"台帳が空です" });
@@ -242,17 +241,14 @@ function handleSyncStaff_(e, p) {
   for (var j = 0; j < rg.length; j++) {
     var r = rg[j];
     var tA2 = ztrim(String(r[colTID-1] || ""));
-    var tB2 = ztrim(String(r[colSID-1] || ""));
+    var rowEmailVal = ztrim(String(r[colEmail-1] || "")).toLowerCase();
     var rowUid = colUID > 0 ? ztrim(String(r[colUID-1] || "")) : "";
-    var rowEmail = colEmail > 0 ? ztrim(String(r[colEmail-1] || "")).toLowerCase() : "";
 
-    // メールアドレス / LINE UID / テナント+スタッフID で照合
+    // メールアドレス / LINE UID で照合
     var matched = false;
-    if (emailParam && rowEmail && rowEmail === emailParam) {
+    if (emailParam && rowEmailVal && rowEmailVal === emailParam) {
       matched = true;
     } else if (lineUid && rowUid === lineUid) {
-      matched = true;
-    } else if (tid && sid && tA2 === tid && tB2 === sid) {
       matched = true;
     }
 
@@ -261,15 +257,13 @@ function handleSyncStaff_(e, p) {
       if (lineUid && colUID > 0 && !rowUid) {
         sh.getRange(2 + j, colUID).setValue(lineUid);
       }
-    }
-
-    if (matched) {
       var name   = colNM>0 ? String(r[colNM-1] || "") : "";
       var hourly = colHW>0 ? Number(r[colHW-1] || 0) : 0;
       var init   = colINIT>0? normalizeInit(r[colINIT-1]) : "";
       return out_(e, {
         ok:true,
-        staffId: tB2,
+        staffId: rowEmailVal,
+        email: rowEmailVal,
         name:name,
         hourly:hourly,
         lineUid: rowUid || lineUid,
@@ -287,20 +281,26 @@ function handleClockIn_(e, p) {
   var tid = ztrim(String(p.tenantId || p["テナントID"] || ""));
   var sid = ztrim(String(p.staffId  || p["スタッフID"] || ""));
   var name = String(p.name || p["名前"] || "");
+  var emailParam = ztrim(String(p.email || p["メール"] || ""));
+  // メールからスタッフ解決
+  if (emailParam && (!tid || !sid)) {
+    var resolved = resolveStaffByEmail_(emailParam);
+    if (resolved) { tid = resolved.tenantId; sid = resolved.staffId; if (!name) name = resolved.name; }
+  }
   var inAt = toJstString_(p["出勤時刻"]);
   var ts = toJstString_(p["タイムスタンプ"]) || inAt || jstNow_();
-  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId required" });
+  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId or email required" });
   if (!inAt) inAt = ts;
 
   var sh = getOrCreateSheetSafe_("打刻", [
-    "テナントID","スタッフID","名前","時給",
+    "テナントID","メール","名前","時給",
     "出勤時刻","退勤時刻","タイムスタンプ",
     "勤務時間(分)","勤務時間(時間)","金額(円)"
   ]);
 
   var hm = headerMap_(sh);
   var colTID = hm.find(["テナントID","tenantId"], true);
-  var colSID = hm.find(["スタッフID","staffId","id"], true);
+  var colSID = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM  = hm.find(["名前","name"], false);
   var colHW  = hm.find(["時給","hourly","hourlyWage"], false);
   var colIN  = hm.find(["出勤時刻","出勤","in","clockIn"], true);
@@ -339,20 +339,25 @@ function handleClockOut_(e, p) {
   var tid = ztrim(String(p.tenantId || p["テナントID"] || ""));
   var sid = ztrim(String(p.staffId  || p["スタッフID"] || ""));
   var name = String(p.name || p["名前"] || "");
+  var emailParam = ztrim(String(p.email || p["メール"] || ""));
+  if (emailParam && (!tid || !sid)) {
+    var resolved = resolveStaffByEmail_(emailParam);
+    if (resolved) { tid = resolved.tenantId; sid = resolved.staffId; if (!name) name = resolved.name; }
+  }
   var outAt = toJstString_(p["退勤時刻"]);
   var ts = toJstString_(p["タイムスタンプ"]) || outAt || jstNow_();
-  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId required" });
+  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId or email required" });
   if (!outAt) outAt = ts;
 
   var sh = getOrCreateSheetSafe_("打刻", [
-    "テナントID","スタッフID","名前","時給",
+    "テナントID","メール","名前","時給",
     "出勤時刻","退勤時刻","タイムスタンプ",
     "勤務時間(分)","勤務時間(時間)","金額(円)"
   ]);
 
   var hm = headerMap_(sh);
   var colTID = hm.find(["テナントID","tenantId"], true);
-  var colSID = hm.find(["スタッフID","staffId","id"], true);
+  var colSID = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM  = hm.find(["名前","name"], false);
   var colHW  = hm.find(["時給","hourly","hourlyWage"], false);
   var colIN  = hm.find(["出勤時刻","出勤","in","clockIn"], true);
@@ -396,12 +401,12 @@ function handleClockOut_(e, p) {
 
       // 給与追記
       var pay = getOrCreateSheetSafe_("給与", [
-        "テナントID","スタッフID","名前","日付","出勤時刻","退勤時刻",
+        "テナントID","メール","名前","日付","出勤時刻","退勤時刻",
         "勤務時間(分)","勤務時間(時間)","時給","金額(円)","支給額","タイムスタンプ"
       ]);
       var pm = headerMap_(pay);
       var pTID = pm.find(["テナントID","tenantId"], true);
-      var pSID = pm.find(["スタッフID","staffId"], true);
+      var pSID = pm.find(["メール","メールアドレス","email","スタッフID","staffId"], true);
       var pNM  = pm.find(["名前","name"], false);
       var pDATE= pm.find(["日付","date"], false);
       var pIN  = pm.find(["出勤時刻","出勤","in"], true);
@@ -451,14 +456,19 @@ function handleSubmitShifts_(e, p) {
   var tid = ztrim(String(p.tenantId || p["テナントID"] || ""));
   var sid = ztrim(String(p.staffId  || p["スタッフID"] || ""));
   var name = String(p.name || p["名前"] || "");
+  var emailParam = ztrim(String(p.email || p["メール"] || ""));
+  if (emailParam && (!tid || !sid)) {
+    var resolved = resolveStaffByEmail_(emailParam);
+    if (resolved) { tid = resolved.tenantId; sid = resolved.staffId; if (!name) name = resolved.name; }
+  }
   var month = String(p.month || "");
   var items = p.items || [];
 
-  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId required" });
+  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId or email required" });
   if (typeof items === "string") { try { items = JSON.parse(items); } catch (_) { items = []; } }
   if (!items || !items.length) return out_(e, { ok:false, error:"no_items" });
 
-  var sh = getOrCreateSheetSafe_("提出シフト", ["テナントID","スタッフID","名前","月","日付","希望","ステータス","タイムスタンプ"]);
+  var sh = getOrCreateSheetSafe_("提出シフト", ["テナントID","メール","名前","月","日付","希望","ステータス","タイムスタンプ"]);
   var nowJst = jstNow_();
   var rows = [];
   for (var i=0; i<items.length; i++) {
@@ -492,7 +502,7 @@ function handleGetSubmittedShifts_(e, p) {
   var headers = sh.getRange(1,1,1,lastCol).getValues()[0].map(function(h){ return String(h||"").trim(); });
   function findIdx(keys, def){ for (var i=0;i<keys.length;i++){ var j=headers.indexOf(keys[i]); if (j>=0) return j; } return (typeof def==="number"?def:-1); }
   var IDX_TID = findIdx(["テナントID","tenantId"], 0);
-  var IDX_SID = findIdx(["スタッフID","staffId","id"], 1);
+  var IDX_SID = findIdx(["メール","メールアドレス","email","スタッフID","staffId","id"], 1);
   var IDX_DATE= findIdx(["日付","date"], 4);    // E列（0-based 4）
   var IDX_WISH= findIdx(["希望","wish","シフト"], 5);
 
@@ -519,9 +529,14 @@ function handleGetSubmittedShifts_(e, p) {
 function handleGetConfirmedShifts_(e, p) {
   var tid   = ztrim(String(p.tenantId || p["テナントID"] || ""));
   var sid   = ztrim(String(p.staffId  || p["スタッフID"] || ""));
+  var emailParam = ztrim(String(p.email || p["メール"] || ""));
+  if (emailParam && (!tid || !sid)) {
+    var resolved = resolveStaffByEmail_(emailParam);
+    if (resolved) { tid = resolved.tenantId; sid = resolved.staffId; }
+  }
   var month = String(p.month || "");
   var name  = String(p.sheetName || "確定シフト");
-  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId required" });
+  if (!tid || !sid) return out_(e, { ok:false, error:"tenantId, staffId or email required" });
 
   var sh = getSheetOrNull_(name);
   if (!sh) return out_(e, { ok:true, items:[] });
@@ -536,7 +551,7 @@ function handleGetConfirmedShifts_(e, p) {
   }
 
   var IDX_TID  = findIdx(["テナントID","tenantId"], 0);
-  var IDX_SID  = findIdx(["スタッフID","staffId","id"], 1);
+  var IDX_SID  = findIdx(["メール","メールアドレス","email","スタッフID","staffId","id"], 1);
   var IDX_DATE = findIdx(["日付","date"], 4);  // 既定 E（0-based 4）
   var IDX_WISH = findIdx(["シフト","確定値","確定シフト","wish","value","shift"], 5); // 既定 F
   var IDX_STAT = findIdx(["ステータス","status","確定"], 6); // 既定 G
@@ -575,10 +590,10 @@ function handleConfirmShifts_(e, p) {
   if (!tid || !sid || !month) return out_(e, { ok:false, error:"tenantId, staffId, month required" });
   if (typeof items === "string") { try { items = JSON.parse(items); } catch(_) { items = []; } }
 
-  var sh = getOrCreateSheetSafe_("確定シフト", ["テナントID","スタッフID","名前","月","日付","希望","ステータス","タイムスタンプ"]);
+  var sh = getOrCreateSheetSafe_("確定シフト", ["テナントID","メール","名前","月","日付","希望","ステータス","タイムスタンプ"]);
   var hm = headerMap_(sh);
   var colTID  = hm.find(["テナントID","tenantId"], true);
-  var colSID  = hm.find(["スタッフID","staffId","id"], true);
+  var colSID  = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM   = hm.find(["名前","name"], false);
   var colMON  = hm.find(["月","month"], true);
   var colDATE = hm.find(["日付","date"], true);
@@ -624,7 +639,7 @@ function handleConfirmShifts_(e, p) {
     var staffSh = getDB_().getSheetByName("スタッフ");
     if (staffSh) {
       var shm = headerMap_(staffSh);
-      var sColSID = shm.find(["スタッフID","staffId","id"], true);
+      var sColSID = shm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
       var sColUID = shm.find(["LINE UID","lineUid","LINE_UID"], false);
       var sColTID = shm.find(["テナントID","tenantId"], true);
       if (sColUID > 0) {
@@ -692,7 +707,7 @@ function handleSaveStaff_(e, p) {
   var staff = p.staff || p["staff"];
   if (!Array.isArray(staff)) return out_(e, { ok:false, error:"staff array required" });
 
-  var sh = getOrCreateSheetSafe_("スタッフ", ["テナントID","スタッフID","名前","時給","初期表示"]);
+  var sh = getOrCreateSheetSafe_("スタッフ", ["テナントID","メール","名前","時給","初期表示"]);
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2,1,last-1,Math.max(5, sh.getLastColumn())).clearContent();
 
@@ -731,7 +746,7 @@ function readStaff_() {
   if (last < 2) return [];
   var hm = headerMap_(sh);
   var colTID  = hm.find(["テナントID","tenantId"], true);
-  var colSID  = hm.find(["スタッフID","staffId","id"], true);
+  var colSID  = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var colNM   = hm.find(["名前","name"], false);
   var colHW   = hm.find(["時給","hourly","hourlyWage"], false);
   var colINIT = hm.find(["初期表示","初期表示シフト","initialView","defaultView"], false);
@@ -764,7 +779,7 @@ function readDesiredFromSubmitted_() {
   var last = sh.getLastRow();
   if (last < 2) return [];
   var hm = headerMap_(sh);
-  var cSID = hm.find(["スタッフID","staffId","id"], true);
+  var cSID = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
   var cDATE= hm.find(["日付","date"], true);
   var cW   = hm.find(["希望","wish","シフト"], false);
 
@@ -886,15 +901,50 @@ function parseJstStringToDate_(s) {
   return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
 }
 function getHourlyFromStaff_(tenantId, staffId) {
-  var sh = getOrCreateSheetSafe_("スタッフ", ["テナントID","スタッフID","名前","時給","初期表示"]);
+  var sh = getDB_().getSheetByName("スタッフ");
+  if (!sh) return 0;
+  var hm = headerMap_(sh);
+  var cTID   = hm.find(["テナントID","tenantId"], true);
+  var cEmail = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
+  var cHW    = hm.find(["時給","hourly","hourlyWage"], false);
+  if (cHW < 0) return 0;
   var last = sh.getLastRow();
   if (last < 2) return 0;
-  var vals = sh.getRange(2,1,last-1,5).getValues();
+  var vals = sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
   for (var i=0;i<vals.length;i++){
     var r = vals[i];
-    if (ztrim(String(r[0]||""))===tenantId && String(r[1]||"")===staffId) {
-      return Number(r[3]||0);
+    var rowId = String(r[cEmail-1]||"").toLowerCase().trim();
+    if (ztrim(String(r[cTID-1]||""))===tenantId && rowId===staffId.toLowerCase().trim()) {
+      return Number(r[cHW-1]||0);
     }
   }
   return 0;
+}
+
+/** メールアドレスからスタッフ情報を解決するヘルパー（メール=staffId） */
+function resolveStaffByEmail_(emailParam) {
+  if (!emailParam) return null;
+  var sh = getDB_().getSheetByName("スタッフ");
+  if (!sh) return null;
+  var hm = headerMap_(sh);
+  var colTID   = hm.find(["テナントID","tenantId"], true);
+  var colNM    = hm.find(["名前","name"], false);
+  var colHW    = hm.find(["時給","hourly","hourlyWage"], false);
+  var colEmail = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
+  var last = sh.getLastRow();
+  if (last < 2) return null;
+  var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  var em = String(emailParam).toLowerCase().trim();
+  for (var i = 0; i < vals.length; i++) {
+    var rowEmail = String(vals[i][colEmail - 1] || "").toLowerCase().trim();
+    if (rowEmail === em) {
+      return {
+        tenantId: ztrim(String(vals[i][colTID - 1] || "")),
+        staffId:  em,
+        name:     colNM > 0 ? String(vals[i][colNM - 1] || "") : "",
+        hourly:   colHW > 0 ? Number(vals[i][colHW - 1] || 0) : 0
+      };
+    }
+  }
+  return null;
 }
