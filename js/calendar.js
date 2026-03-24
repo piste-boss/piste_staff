@@ -199,6 +199,29 @@ var ShiftCalendar = (function () {
     _refreshPending();
   }
 
+  /** 初期表示シフトを当月に自動セット（土日月=×、それ以外=defaultWish） */
+  function applyDefaultShifts(defaultWish) {
+    if (!_calendar) return;
+    var view = _calendar.view;
+    var start = view.currentStart;
+    var year = start.getFullYear();
+    var month0 = start.getMonth();
+    var first = new Date(year, month0, 1);
+    var last = new Date(year, month0 + 1, 0);
+
+    _pendingShifts = {};
+    for (var d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+      var ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      var w = d.getDay();
+      if (w === 0 || w === 1 || w === 6) {
+        _pendingShifts[ds] = "\u00d7";
+      } else if (defaultWish === "1" || defaultWish === "2") {
+        _pendingShifts[ds] = defaultWish;
+      }
+    }
+    _refreshPending();
+  }
+
   /** カレンダーインスタンス取得 */
   function getCalendar() {
     return _calendar;
@@ -209,6 +232,7 @@ var ShiftCalendar = (function () {
     setConfirmedShifts: setConfirmedShifts,
     getPendingShifts: getPendingShifts,
     clearPending: clearPending,
+    applyDefaultShifts: applyDefaultShifts,
     getCalendar: getCalendar,
     SHIFT_COLORS: SHIFT_COLORS,
   };

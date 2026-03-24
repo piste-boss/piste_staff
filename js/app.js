@@ -100,10 +100,12 @@ function StaffApp() {
       },
     });
 
-    // レイアウト確定後にリサイズ
+    // レイアウト確定後にリサイズ + 初期シフト反映
     setTimeout(function () {
       var cal = ShiftCalendar.getCalendar();
       if (cal) cal.updateSize();
+      var dw = LS.get("defaultWishOtherDays") || "";
+      if (dw) ShiftCalendar.applyDefaultShifts(dw);
     }, 100);
 
     // 初回ロード
@@ -165,6 +167,11 @@ function StaffApp() {
         if (name) { setStaffName(name); LS.set("staffName", name); }
         setStaffId(sid); LS.set("staffId", sid);
         setEditStaffId(sid);
+        // 初期表示シフトを保存 & カレンダーに反映
+        var dw = String(r.defaultWish || r.initialView || "").trim();
+        dw = (dw === "1" || dw === "2") ? dw : "";
+        LS.set("defaultWishOtherDays", dw);
+        ShiftCalendar.applyDefaultShifts(dw);
         toast("\u540c\u671f\u3057\u307e\u3057\u305f\uff1a" + (name || sid));
       } else {
         toast("\u540c\u671f\u5931\u6557\uff1a" + (r && r.error ? r.error : "\u30b9\u30bf\u30c3\u30d5\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093"));
@@ -202,8 +209,7 @@ function StaffApp() {
         </div>
       </header>
 
-      {tab === "home" ? (
-      <main className="p-4 pb-28">
+      <main className="p-4 pb-28" style={{display: tab === "home" ? "block" : "none"}}>
         {/* スタッフ名 */}
         <div className="mb-3">
           <div className="text-sm text-gray-500">{"\u30b9\u30bf\u30c3\u30d5"}</div>
@@ -246,8 +252,8 @@ function StaffApp() {
           {"* \u30ab\u30ec\u30f3\u30c0\u30fc\u306e\u65e5\u4ed8\u3092\u30bf\u30c3\u30d7\u3057\u3066\u30b7\u30d5\u30c8\u5e0c\u671b\u3092\u9078\u629e\u3057\u3001\u300c\u30b7\u30d5\u30c8\u63d0\u51fa\u300d\u3067\u9001\u4fe1\u3057\u307e\u3059\u3002"}
         </div>
       </main>
-      ) : (
-      <main className="p-4 pb-28">
+
+      <main className="p-4 pb-28" style={{display: tab === "settings" ? "block" : "none"}}>
         <section className="space-y-4">
           <Input label={"\u30b9\u30bf\u30c3\u30d5ID"} value={editStaffId} onChange={setEditStaffId} placeholder="staff-001" />
           <Input label={"\u30b9\u30bf\u30c3\u30d5\u540d"} value={staffName} onChange={function(){}} placeholder="" disabled={true} />
@@ -265,7 +271,6 @@ function StaffApp() {
 
         </section>
       </main>
-      )}
 
       <footer className="fixed bottom-0 left-0 right-0 border-t bg-white p-3 text-center text-xs text-gray-500">
         {"\u30b9\u30d7\u30ec\u30c3\u30c9\u30b7\u30fc\u30c8\u9023\u643a / \u30b9\u30bf\u30c3\u30d5\u7248 v" + CONFIG.VERSION}
