@@ -1,6 +1,7 @@
 /**
  * LINE Webhook プロキシ (Netlify Functions v1)
- * LINE に即座に 200 を返し、GAS への転送はバックグラウンドで実行
+ * GAS に POST を転送。GAS は doPost 実行時に LINE Reply API を直接呼ぶため、
+ * GAS のレスポンスを待つ必要はない。
  */
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJVA6u5EpSKptrexvvqYh8jMSYiLIjprgXNOleAf2uWRbMyWg/exec";
@@ -18,18 +19,32 @@ exports.handler = async (event) => {
 
   const body = event.body || "";
   console.log("[line-webhook] body length:", body.length);
+  console.log("[line-webhook] body:", body.slice(0, 300));
 
-  // GAS に転送（base64エンコードしてGETで送信）
+  // GAS に POST で転送（redirect: manual で302を取得、その後GETで追従）
+  // GAS は doPost 実行時に sendLineReply_ を呼ぶので、
+  // レスポンスの中身は重要ではない
   try {
-    const encoded = Buffer.from(body, "utf-8").toString("base64");
-    const gasUrl = `${GAS_URL}?lineWebhook=${encodeURIComponent(encoded)}`;
-    console.log("[line-webhook] forwarding to GAS...");
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+      redirect: "manual",
+    });
+    console.log("[line-webhook] GAS initial status:", res.status);
 
-    const res = await fetch(gasUrl, { method: "GET", redirect: "follow" });
-    const text = await res.text();
-    console.log("[line-webhook] GAS status:", res.status, "response:", text.slice(0, 200));
+    // 302 の場合、リダイレクト先をGETで取得（レスポンス確認用）
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      console.log("[line-webhook] redirect to:", location ? location.slice(0, 100) : "none");
+      if (location) {
+        const res2 = await fetch(location, { method: "GET", redirect: "follow" });
+        const text = await res2.text();
+        console.log("[line-webhook] GAS response:", text.slice(0, 200));
+      }
+    }
   } catch (error) {
-    console.error("[line-webhook] GAS error:", error);
+    console.error("[line-webhook] error:", error);
   }
 
   return {
