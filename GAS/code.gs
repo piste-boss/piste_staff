@@ -51,6 +51,7 @@ function handle_(e, isGet) {
     if (t === "state")              return handleState_(e, p);
     if (t === "syncstaff")          return handleSyncStaff_(e, p);
     if (t === "checklinelink")      return handleCheckLineLink_(e, p);
+    if (t === "linewebhook")        return handleLineWebhookProxy_(e, p);
 
     if (t === "clockin")            return handleClockIn_(e, p);
     if (t === "clockout")           return handleClockOut_(e, p);
@@ -289,6 +290,24 @@ function handleSyncStaff_(e, p) {
     }
   }
   return out_(e, { ok:false, error:"staff not found" });
+}
+
+/******************** LINE Webhook プロキシ経由 ********************/
+function handleLineWebhookProxy_(e, p) {
+  var data = String(p.data || "");
+  if (!data) return out_(e, { ok:true, processed:0 });
+  var decoded = Utilities.newBlob(Utilities.base64Decode(data)).getDataAsString();
+  var body = JSON.parse(decoded);
+  var events = (body && body.events) ? body.events : [];
+  var count = 0;
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    try {
+      if (ev.type === "follow") { handleLineFollow_(ev); count++; }
+      else if (ev.type === "message" && ev.message && ev.message.type === "text") { handleLineMessage_(ev); count++; }
+    } catch (err) { Logger.log("linewebhook proxy error: " + String(err)); }
+  }
+  return out_(e, { ok:true, processed:count });
 }
 
 /******************** LINE連携確認 ********************/
