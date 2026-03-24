@@ -204,7 +204,7 @@ function StaffApp() {
           <h1 className="text-lg font-semibold">{"\u52e4\u6020\uff08\u30b9\u30bf\u30c3\u30d5\uff09"}</h1>
           <nav className="flex gap-2 text-sm">
             <button onClick={function(){ setTab("home"); setTimeout(function(){ var c = ShiftCalendar.getCalendar(); if(c) c.updateSize(); }, 50); }} className={"px-3 py-1 rounded-full border " + (tab === "home" ? "bg-gray-900 text-white" : "bg-white")}>{"\u30db\u30fc\u30e0"}</button>
-            <button onClick={function(){ setTab("settings"); }} className={"px-3 py-1 rounded-full border " + (tab === "settings" ? "bg-gray-900 text-white" : "bg-white")}>{"\u8a2d\u5b9a"}</button>
+            <button onClick={function(){ setTab("settings"); }} className={"px-3 py-1 rounded-full border " + (tab === "settings" ? "bg-gray-900 text-white" : "bg-white")}>{"\u30de\u30a4\u30da\u30fc\u30b8"}</button>
           </nav>
         </div>
       </header>
