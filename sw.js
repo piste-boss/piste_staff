@@ -1,12 +1,10 @@
-const CACHE = "km-cache-v2";
+const CACHE = "km-cache-v3";
 const ASSETS = [
   "/",
   "/index.html",
   "/clock.html",
   "/manifest.webmanifest",
   "/styles.css",
-  "/icon-192.png",
-  "/icon-512.png",
   "/js/config.js",
   "/js/utils.js",
   "/js/api.js",

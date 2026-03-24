@@ -42,7 +42,7 @@ function _sendGASCore(gasUrl, payload) {
         if (!url) return resolve({ ok: false, error: "no_url" });
         var res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify(payload),
         });
         var text = await res.text();
@@ -97,7 +97,7 @@ function _sendGASWrite(gasUrl, payload) {
         var url = withBuster(execUrl);
         var res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify(payload),
         });
         var text = await res.text();

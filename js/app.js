@@ -100,6 +100,12 @@ function StaffApp() {
       },
     });
 
+    // レイアウト確定後にリサイズ
+    setTimeout(function () {
+      var cal = ShiftCalendar.getCalendar();
+      if (cal) cal.updateSize();
+    }, 100);
+
     // 初回ロード
     var now = new Date();
     loadConfirmedShifts(now.getFullYear(), now.getMonth());
@@ -188,7 +194,7 @@ function StaffApp() {
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold">{"\u52e4\u6020\uff08\u30b9\u30bf\u30c3\u30d5\uff09"}</h1>
           <nav className="flex gap-2 text-sm">
-            <button onClick={function(){ setTab("home"); }} className={"px-3 py-1 rounded-full border " + (tab === "home" ? "bg-gray-900 text-white" : "bg-white")}>{"\u30db\u30fc\u30e0"}</button>
+            <button onClick={function(){ setTab("home"); setTimeout(function(){ var c = ShiftCalendar.getCalendar(); if(c) c.updateSize(); }, 50); }} className={"px-3 py-1 rounded-full border " + (tab === "home" ? "bg-gray-900 text-white" : "bg-white")}>{"\u30db\u30fc\u30e0"}</button>
             <button onClick={function(){ setTab("settings"); }} className={"px-3 py-1 rounded-full border " + (tab === "settings" ? "bg-gray-900 text-white" : "bg-white")}>{"\u8a2d\u5b9a"}</button>
           </nav>
         </div>
@@ -255,19 +261,6 @@ function StaffApp() {
             <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
           </div>
 
-          <div className="text-sm text-gray-600">{"\u540c\u671f\u6210\u529f\u5f8c\u3001\u30db\u30fc\u30e0\u306e\u30ab\u30ec\u30f3\u30c0\u30fc\u4e0a\u90e8\u306b\u30b9\u30bf\u30c3\u30d5\u540d\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002"}</div>
-
-          <div className="rounded-xl border p-3 text-xs text-gray-600">
-            <div className="font-semibold mb-1">{"\u4fdd\u5b58\u4e2d\u306e\u5024"}</div>
-            <div>{"\u30b9\u30bf\u30c3\u30d5ID: "}{staffId || "(\u672a\u8a2d\u5b9a)"}</div>
-            <div>{"\u30b9\u30bf\u30c3\u30d5\u540d: "}{staffName || "(\u672a\u540c\u671f)"}</div>
-            <div>{"LINE UID: "}{LS.get("lineUid") || "(\u672a\u9023\u643a)"}</div>
-          </div>
-
-          <div className="rounded-xl border p-3 text-xs text-gray-600">
-            <div className="font-semibold mb-1">{"\u51fa\u9000\u52e4\u30da\u30fc\u30b8"}</div>
-            <a href="/clock.html" className="text-blue-500 underline">{"/clock.html \u3092\u958b\u304f"}</a>
-          </div>
         </section>
       </main>
       )}

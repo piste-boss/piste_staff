@@ -15,15 +15,10 @@ var Auth = (function () {
   async function init() {
     if (_ready) return;
 
-    // LIFF SDK が読み込まれていない場合はスキップ（外部ブラウザ対応）
-    if (typeof liff === "undefined") {
-      console.warn("LIFF SDK not loaded, falling back to localStorage");
-      _staff = {
-        staffId: LS.get("staffId") || "",
-        staffName: LS.get("staffName") || "",
-        lineUid: LS.get("lineUid") || "",
-      };
-      _ready = true;
+    // LIFF SDK未読込 or LIFF ID未設定 → スキップ
+    if (typeof liff === "undefined" || !CONFIG.LIFF_ID || CONFIG.LIFF_ID === "YOUR_LIFF_ID") {
+      console.warn("LIFF not available, falling back to localStorage");
+      _fallbackToLS();
       return;
     }
 
