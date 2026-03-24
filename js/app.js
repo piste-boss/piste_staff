@@ -26,9 +26,20 @@ function ToastHost() {
 /*************************
  * メインアプリ
  *************************/
+function Input({ label, value, onChange, placeholder, disabled }) {
+  return (
+    <label className="block">
+      <div className="text-sm text-gray-600 mb-1">{label}</div>
+      <input className={"w-full rounded-xl border px-3 py-3 text-base " + (disabled ? "bg-gray-100 text-gray-400" : "")} value={value} onChange={function(e){ onChange(e.target.value); }} placeholder={placeholder} disabled={disabled} />
+    </label>
+  );
+}
+
 function StaffApp() {
+  var [tab, setTab] = useState("home");
   var [staffId, setStaffId] = useState(LS.get("staffId") || "");
   var [staffName, setStaffName] = useState(LS.get("staffName") || "");
+  var [editStaffId, setEditStaffId] = useState(LS.get("staffId") || "");
   var [pendingCount, setPendingCount] = useState(0);
   var [loading, setLoading] = useState(true);
   var calContainerRef = useRef(null);
@@ -131,6 +142,37 @@ function StaffApp() {
     }
   }
 
+  // スタッフ同期
+  async function handleSync() {
+    var sid = ztrim(editStaffId);
+    if (!sid) return toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044");
+    toast("\u540c\u671f\u4e2d\u2026");
+    try {
+      var r = await sendGAS({
+        type: "syncStaff",
+        tenantId: CONFIG.TENANT_ID,
+        staffId: sid,
+      });
+      if (r && r.ok) {
+        var name = String(r.name || "");
+        if (name) { setStaffName(name); LS.set("staffName", name); }
+        setStaffId(sid); LS.set("staffId", sid);
+        toast("\u540c\u671f\u3057\u307e\u3057\u305f\uff1a" + (name || sid));
+      } else {
+        toast("\u540c\u671f\u5931\u6557\uff1a" + (r && r.error ? r.error : "\u30b9\u30bf\u30c3\u30d5\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093"));
+      }
+    } catch (e) {
+      toast("\u540c\u671f\u30a8\u30e9\u30fc");
+    }
+  }
+
+  // 設定リセット
+  function handleReset() {
+    LS.del("staffId"); LS.del("staffName"); LS.del("lineUid"); LS.del("defaultWishOtherDays");
+    setStaffId(""); setStaffName(""); setEditStaffId("");
+    toast("\u4fdd\u5b58\u5024\u3092\u30ea\u30bb\u30c3\u30c8\u3057\u307e\u3057\u305f");
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-md min-h-[100dvh] bg-white flex items-center justify-center">
@@ -145,11 +187,21 @@ function StaffApp() {
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold">{"\u52e4\u6020\uff08\u30b9\u30bf\u30c3\u30d5\uff09"}</h1>
-          <div className="text-sm text-gray-500">{staffName || "\u672a\u30ed\u30b0\u30a4\u30f3"}</div>
+          <nav className="flex gap-2 text-sm">
+            <button onClick={function(){ setTab("home"); }} className={"px-3 py-1 rounded-full border " + (tab === "home" ? "bg-gray-900 text-white" : "bg-white")}>{"\u30db\u30fc\u30e0"}</button>
+            <button onClick={function(){ setTab("settings"); }} className={"px-3 py-1 rounded-full border " + (tab === "settings" ? "bg-gray-900 text-white" : "bg-white")}>{"\u8a2d\u5b9a"}</button>
+          </nav>
         </div>
       </header>
 
+      {tab === "home" ? (
       <main className="p-4 pb-28">
+        {/* スタッフ名 */}
+        <div className="mb-3">
+          <div className="text-sm text-gray-500">{"\u30b9\u30bf\u30c3\u30d5"}</div>
+          <div className="text-xl font-bold tracking-tight">{staffName || "\uff08\u672a\u540c\u671f\uff09"}</div>
+        </div>
+
         {/* 凡例 */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 mb-3">
           <span className="inline-flex items-center gap-1">
@@ -186,6 +238,39 @@ function StaffApp() {
           {"* \u30ab\u30ec\u30f3\u30c0\u30fc\u306e\u65e5\u4ed8\u3092\u30bf\u30c3\u30d7\u3057\u3066\u30b7\u30d5\u30c8\u5e0c\u671b\u3092\u9078\u629e\u3057\u3001\u300c\u30b7\u30d5\u30c8\u63d0\u51fa\u300d\u3067\u9001\u4fe1\u3057\u307e\u3059\u3002"}
         </div>
       </main>
+      ) : (
+      <main className="p-4 pb-28">
+        <section className="space-y-4">
+          <Input label={"\u30b9\u30bf\u30c3\u30d5ID"} value={editStaffId} onChange={setEditStaffId} placeholder="staff-001" />
+          <Input label={"\u30b9\u30bf\u30c3\u30d5\u540d"} value={staffName} onChange={function(){}} placeholder="" disabled={true} />
+
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={function(){
+              var sid = ztrim(editStaffId);
+              if (!sid) { toast("\u30b9\u30bf\u30c3\u30d5ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044"); return; }
+              setStaffId(sid); LS.set("staffId", sid);
+              toast("\u4fdd\u5b58\u3057\u307e\u3057\u305f");
+            }} className="px-4 py-3 rounded-xl border shadow-sm font-semibold">{"\u4fdd\u5b58"}</button>
+            <button onClick={handleSync} className="px-4 py-3 rounded-xl border shadow-sm font-semibold">{"\u540c\u671f"}</button>
+            <button onClick={handleReset} className="px-4 py-3 rounded-xl border shadow-sm text-sm">{"\u30ea\u30bb\u30c3\u30c8"}</button>
+          </div>
+
+          <div className="text-sm text-gray-600">{"\u540c\u671f\u6210\u529f\u5f8c\u3001\u30db\u30fc\u30e0\u306e\u30ab\u30ec\u30f3\u30c0\u30fc\u4e0a\u90e8\u306b\u30b9\u30bf\u30c3\u30d5\u540d\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002"}</div>
+
+          <div className="rounded-xl border p-3 text-xs text-gray-600">
+            <div className="font-semibold mb-1">{"\u4fdd\u5b58\u4e2d\u306e\u5024"}</div>
+            <div>{"\u30b9\u30bf\u30c3\u30d5ID: "}{staffId || "(\u672a\u8a2d\u5b9a)"}</div>
+            <div>{"\u30b9\u30bf\u30c3\u30d5\u540d: "}{staffName || "(\u672a\u540c\u671f)"}</div>
+            <div>{"LINE UID: "}{LS.get("lineUid") || "(\u672a\u9023\u643a)"}</div>
+          </div>
+
+          <div className="rounded-xl border p-3 text-xs text-gray-600">
+            <div className="font-semibold mb-1">{"\u51fa\u9000\u52e4\u30da\u30fc\u30b8"}</div>
+            <a href="/clock.html" className="text-blue-500 underline">{"/clock.html \u3092\u958b\u304f"}</a>
+          </div>
+        </section>
+      </main>
+      )}
 
       <footer className="fixed bottom-0 left-0 right-0 border-t bg-white p-3 text-center text-xs text-gray-500">
         {"\u30b9\u30d7\u30ec\u30c3\u30c9\u30b7\u30fc\u30c8\u9023\u643a / \u30b9\u30bf\u30c3\u30d5\u7248 v" + CONFIG.VERSION}
