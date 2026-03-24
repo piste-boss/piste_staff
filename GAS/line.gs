@@ -88,6 +88,42 @@ function handleLineMessage_(ev) {
   var uid = ev.source && ev.source.userId ? ev.source.userId : "";
   var text = String(ev.message.text || "").trim();
 
+  // LINE連携コマンド：「連携 メールアドレス」
+  if (/^(\u9023\u643a|link)\s+/.test(text)) {
+    var emailInput = text.replace(/^(\u9023\u643a|link)\s+/, "").trim().toLowerCase();
+    if (!emailInput || emailInput.indexOf("@") < 0) {
+      sendLineReply_(ev.replyToken, "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u306e\u5f62\u5f0f\u304c\u6b63\u3057\u304f\u3042\u308a\u307e\u305b\u3093\u3002\n\u4f8b\uff1a\u9023\u643a example@gmail.com");
+      return;
+    }
+    // スタッフシートでメールを検索し、LINE UIDを書き込み
+    var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
+    if (!sh) { sendLineReply_(ev.replyToken, "\u30b9\u30bf\u30c3\u30d5\u30b7\u30fc\u30c8\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002"); return; }
+    var hm = headerMap_(sh);
+    var colEmail = hm.find(["\u30e1\u30fc\u30eb", "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9", "email", "Email", "mail", "\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
+    var colUID   = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
+    var colNM    = hm.find(["\u540d\u524d", "name"], false);
+    if (colUID < 0) { sendLineReply_(ev.replyToken, "LINE UID\u5217\u304c\u30b7\u30fc\u30c8\u306b\u3042\u308a\u307e\u305b\u3093\u3002\u7ba1\u7406\u8005\u306b\u9023\u7d61\u3057\u3066\u304f\u3060\u3055\u3044\u3002"); return; }
+    var last = sh.getLastRow();
+    if (last < 2) { sendLineReply_(ev.replyToken, "\u30b9\u30bf\u30c3\u30d5\u304c\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002"); return; }
+    var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+    for (var k = 0; k < vals.length; k++) {
+      var rowEmail = String(vals[k][colEmail - 1] || "").toLowerCase().trim();
+      if (rowEmail === emailInput) {
+        var existingUid = String(vals[k][colUID - 1] || "").trim();
+        if (existingUid && existingUid !== uid) {
+          sendLineReply_(ev.replyToken, "\u3053\u306e\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u306f\u65e2\u306b\u5225\u306eLINE\u30a2\u30ab\u30a6\u30f3\u30c8\u3068\u9023\u643a\u3055\u308c\u3066\u3044\u307e\u3059\u3002");
+          return;
+        }
+        sh.getRange(2 + k, colUID).setValue(uid);
+        var staffName = colNM > 0 ? String(vals[k][colNM - 1] || "") : "";
+        sendLineReply_(ev.replyToken, "\u2705 LINE\u9023\u643a\u304c\u5b8c\u4e86\u3057\u307e\u3057\u305f\uff01\n\u30b9\u30bf\u30c3\u30d5: " + (staffName || emailInput) + "\n\u4eca\u5f8c\u30b7\u30d5\u30c8\u3084\u6253\u523b\u306e\u901a\u77e5\u304c\u5c4a\u304d\u307e\u3059\u3002");
+        return;
+      }
+    }
+    sendLineReply_(ev.replyToken, "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u300c" + emailInput + "\u300d\u306f\u30b9\u30bf\u30c3\u30d5\u306b\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\n\u7ba1\u7406\u8005\u306b\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
+    return;
+  }
+
   // 簡易コマンド
   if (text === "\u30b7\u30d5\u30c8" || text === "shift") {
     sendLineReply_(ev.replyToken, "\u30b7\u30d5\u30c8\u7ba1\u7406\u306f\u30ea\u30c3\u30c1\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u300c\u30b7\u30d5\u30c8\u7ba1\u7406\u300d\u3092\u30bf\u30c3\u30d7\u3057\u3066\u304f\u3060\u3055\u3044\u3002");

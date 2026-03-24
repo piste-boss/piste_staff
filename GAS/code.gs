@@ -37,6 +37,7 @@ function handle_(e, isGet) {
 
     if (t === "state")              return handleState_(e, p);
     if (t === "syncstaff")          return handleSyncStaff_(e, p);
+    if (t === "checklinelink")      return handleCheckLineLink_(e, p);
 
     if (t === "clockin")            return handleClockIn_(e, p);
     if (t === "clockout")           return handleClockOut_(e, p);
@@ -69,6 +70,7 @@ function route_(p) {
 
   if (t === "state")              return J(handleState_(null,p));
   if (t === "syncstaff")          return J(handleSyncStaff_(null,p));
+  if (t === "checklinelink")      return J(handleCheckLineLink_(null,p));
   if (t === "clockin")            return J(handleClockIn_(null,p));
   if (t === "clockout")           return J(handleClockOut_(null,p));
   if (t === "submitshifts")       return J(handleSubmitShifts_(null,p));
@@ -274,6 +276,33 @@ function handleSyncStaff_(e, p) {
     }
   }
   return out_(e, { ok:false, error:"staff not found" });
+}
+
+/******************** LINE連携確認 ********************/
+function handleCheckLineLink_(e, p) {
+  var emailParam = ztrim(String(p.email || p["メール"] || "")).toLowerCase();
+  if (!emailParam) return out_(e, { ok:false, error:"email required" });
+
+  var sh = getDB_().getSheetByName("スタッフ");
+  if (!sh) return out_(e, { ok:false, linked:false });
+
+  var hm = headerMap_(sh);
+  var colEmail = hm.find(["メール","メールアドレス","email","Email","mail","スタッフID","staffId","id"], true);
+  var colUID   = hm.find(["LINE UID","lineUid","LINE_UID"], false);
+  if (colUID < 0) return out_(e, { ok:true, linked:false });
+
+  var last = sh.getLastRow();
+  if (last < 2) return out_(e, { ok:true, linked:false });
+
+  var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var rowEmail = String(vals[i][colEmail - 1] || "").toLowerCase().trim();
+    if (rowEmail === emailParam) {
+      var uid = String(vals[i][colUID - 1] || "").trim();
+      return out_(e, { ok:true, linked: !!uid, lineUid: uid || "" });
+    }
+  }
+  return out_(e, { ok:true, linked:false });
 }
 
 /******************** 打刻/給与 ********************/

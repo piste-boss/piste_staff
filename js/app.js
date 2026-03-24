@@ -24,6 +24,80 @@ function ToastHost() {
 }
 
 /*************************
+ * LINE連携コンポーネント
+ *************************/
+function LineLink({ email }) {
+  var [lineLinked, setLineLinked] = useState(false);
+  var [checking, setChecking] = useState(false);
+
+  // 連携状態を確認
+  useEffect(function () {
+    if (!email) return;
+    setChecking(true);
+    getJSONPExec(CONFIG.GAS_EXEC_URL, {
+      type: "checkLineLink",
+      tenantId: CONFIG.TENANT_ID,
+      email: email,
+    }).then(function (r) {
+      if (r && r.ok && r.linked) setLineLinked(true);
+      else setLineLinked(false);
+      setChecking(false);
+    }).catch(function () { setChecking(false); });
+  }, [email]);
+
+  // LINE連携実行
+  function handleLinkLine() {
+    if (!email) return toast("\u5148\u306b\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u3067\u540c\u671f\u3057\u3066\u304f\u3060\u3055\u3044");
+    // LINE公式アカウントを友だち追加するよう案内
+    // 友だち追加後、LINEで「連携 メールアドレス」と送信してもらう
+    toast("LINE\u516c\u5f0f\u30a2\u30ab\u30a6\u30f3\u30c8\u306b\u300c\u9023\u643a " + email + "\u300d\u3068\u9001\u4fe1\u3057\u3066\u304f\u3060\u3055\u3044");
+  }
+
+  return (
+    <div className="rounded-xl border p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-gray-600">{"\u30b9\u30c6\u30fc\u30bf\u30b9"}</span>
+        {checking ? (
+          <span className="text-sm text-gray-400">{"\u78ba\u8a8d\u4e2d\u2026"}</span>
+        ) : (
+          <span className={"text-sm font-semibold " + (lineLinked ? "text-green-600" : "text-gray-400")}>
+            {lineLinked ? "\u2705 \u9023\u643a\u6e08\u307f" : "\u672a\u9023\u643a"}
+          </span>
+        )}
+      </div>
+
+      <div className="text-xs text-gray-500">
+        {"LINE\u9023\u643a\u3059\u308b\u3068\u4ee5\u4e0b\u306e\u901a\u77e5\u304c\u5c4a\u304d\u307e\u3059\u3002"}
+      </div>
+      <ul className="text-xs text-gray-600 space-y-1 ml-3">
+        <li>{"\u2022 \u30b7\u30d5\u30c8\u63d0\u51fa\u6642\u306e\u78ba\u8a8d\u901a\u77e5"}</li>
+        <li>{"\u2022 \u30b7\u30d5\u30c8\u78ba\u5b9a\u6642\u306e\u304a\u77e5\u3089\u305b"}</li>
+        <li>{"\u2022 \u30b7\u30d5\u30c8\u7de0\u5207\u524d\u65e5\uff0819\u65e5\uff09\u306e\u30ea\u30de\u30a4\u30f3\u30c0\u30fc"}</li>
+        <li>{"\u2022 \u51fa\u52e4\u30fb\u9000\u52e4\u6642\u306e\u8a18\u9332\u901a\u77e5"}</li>
+      </ul>
+
+      {!lineLinked && (
+        <div className="space-y-2">
+          <div className="rounded-lg bg-green-50 p-3 text-xs text-gray-700">
+            <div className="font-semibold mb-1">{"\u9023\u643a\u624b\u9806"}</div>
+            <ol className="list-decimal ml-4 space-y-1">
+              <li>{"LINE\u516c\u5f0f\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u53cb\u3060\u3061\u8ffd\u52a0"}</li>
+              <li>{"LINE\u306e\u30c8\u30fc\u30af\u753b\u9762\u3067\u4ee5\u4e0b\u3092\u9001\u4fe1\uff1a"}</li>
+            </ol>
+            <div className="mt-2 bg-white rounded-lg p-2 text-center font-mono text-sm select-all border">
+              {"\u9023\u643a " + (email || "(\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9)")}
+            </div>
+          </div>
+          <button onClick={handleLinkLine} className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold shadow-sm active:bg-green-600">
+            {"\u9023\u643a\u72b6\u614b\u3092\u78ba\u8a8d"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/*************************
  * メインアプリ
  *************************/
 function Input({ label, value, onChange, placeholder, disabled }) {
@@ -165,10 +239,10 @@ function StaffApp() {
       });
       if (r && r.ok) {
         var name = String(r.name || "");
-        var sid = String(r.staffId || "");
-        if (name) { setStaffName(name); LS.set("staffName", name); }
-        if (sid) { setStaffId(sid); LS.set("staffId", sid); }
-        LS.set("email", addr);
+        var sid = String(r.staffId || r.email || addr);
+        setStaffName(name); LS.set("staffName", name);
+        setStaffId(sid); LS.set("staffId", sid);
+        setEmail(addr); LS.set("email", addr);
         // 初期表示シフトを保存 & カレンダーに反映
         var dw = String(r.defaultWish || r.initialView || "").trim();
         dw = (dw === "1" || dw === "2") ? dw : "";
@@ -273,40 +347,7 @@ function StaffApp() {
           {/* LINE連携 */}
           <div>
             <h2 className="text-sm font-semibold text-gray-800 mb-2">{"LINE\u9023\u643a"}</h2>
-            <div className="rounded-xl border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{"\u30b9\u30c6\u30fc\u30bf\u30b9"}</span>
-                <span className={"text-sm font-semibold " + (LS.get("lineUid") ? "text-green-600" : "text-gray-400")}>
-                  {LS.get("lineUid") ? "\u9023\u643a\u6e08\u307f" : "\u672a\u9023\u643a"}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500">
-                {"LINE\u516c\u5f0f\u30a2\u30ab\u30a6\u30f3\u30c8\u3092\u53cb\u3060\u3061\u8ffd\u52a0\u3059\u308b\u3068\u3001\u4ee5\u4e0b\u306e\u901a\u77e5\u304c\u5c4a\u304d\u307e\u3059\u3002"}
-              </div>
-              <ul className="text-xs text-gray-600 space-y-1 ml-3">
-                <li>{"\u2022 \u30b7\u30d5\u30c8\u63d0\u51fa\u6642\u306e\u78ba\u8a8d\u901a\u77e5"}</li>
-                <li>{"\u2022 \u30b7\u30d5\u30c8\u78ba\u5b9a\u6642\u306e\u304a\u77e5\u3089\u305b"}</li>
-                <li>{"\u2022 \u30b7\u30d5\u30c8\u7de0\u5207\u524d\u65e5\uff0819\u65e5\uff09\u306e\u30ea\u30de\u30a4\u30f3\u30c0\u30fc"}</li>
-                <li>{"\u2022 \u51fa\u52e4\u30fb\u9000\u52e4\u6642\u306e\u8a18\u9332\u901a\u77e5"}</li>
-              </ul>
-              {CONFIG.LIFF_ID && CONFIG.LIFF_ID !== "YOUR_LIFF_ID" ? (
-                <button onClick={function(){
-                  if (typeof liff !== "undefined" && liff.isLoggedIn && liff.isLoggedIn()) {
-                    toast("LINE\u9023\u643a\u6e08\u307f\u3067\u3059");
-                  } else if (typeof liff !== "undefined") {
-                    liff.login();
-                  } else {
-                    toast("LINE\u30a2\u30d7\u30ea\u304b\u3089\u958b\u3044\u3066\u304f\u3060\u3055\u3044");
-                  }
-                }} className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold shadow-sm">
-                  {"LINE\u3067\u30ed\u30b0\u30a4\u30f3"}
-                </button>
-              ) : (
-                <div className="text-xs text-gray-400 text-center py-2">
-                  {"LINE\u9023\u643a\u306f\u7ba1\u7406\u8005\u304c\u8a2d\u5b9a\u5f8c\u306b\u5229\u7528\u3067\u304d\u307e\u3059"}
-                </div>
-              )}
-            </div>
+            <LineLink email={email} />
           </div>
         </section>
       </main>
