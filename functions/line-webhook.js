@@ -21,15 +21,31 @@ exports.handler = async (event) => {
   console.log("[line-webhook] body length:", body.length, "body:", body.slice(0, 200));
 
   try {
-    // LINE の body をそのまま POST で GAS に転送
-    const res = await fetch(GAS_URL, {
+    // GAS は 302 リダイレクトする。redirect:"follow" だと POST→GET に変わり body が消える。
+    // 手動でリダイレクト先URLを取得し、再度 POST する。
+    const res1 = await fetch(GAS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body,
-      redirect: "follow",
+      redirect: "manual",
     });
-    const text = await res.text();
-    console.log("[line-webhook] GAS status:", res.status, "response:", text.slice(0, 200));
+    console.log("[line-webhook] GAS redirect status:", res1.status);
+
+    const redirectUrl = res1.headers.get("location");
+    if (redirectUrl) {
+      console.log("[line-webhook] redirect to:", redirectUrl.slice(0, 100));
+      const res2 = await fetch(redirectUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body,
+        redirect: "follow",
+      });
+      const text = await res2.text();
+      console.log("[line-webhook] GAS final status:", res2.status, "response:", text.slice(0, 200));
+    } else {
+      const text = await res1.text();
+      console.log("[line-webhook] GAS no redirect, status:", res1.status, "response:", text.slice(0, 200));
+    }
   } catch (error) {
     console.error("[line-webhook] error:", error);
   }
