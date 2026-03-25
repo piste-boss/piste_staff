@@ -12,32 +12,37 @@ function getDB_() {
 }
 
 function doPost(e) {
+  var raw = (e && e.postData && e.postData.contents) ? e.postData.contents : "";
+  Logger.log("doPost: contentType=" + (e && e.postData ? e.postData.type : "none") + " len=" + raw.length + " body=" + raw.slice(0, 200));
   // LINE Webhook 判定: body.events が存在 → LINE処理
   try {
-    var raw = (e && e.postData && e.postData.contents) ? e.postData.contents : "";
     if (raw) {
       var body = JSON.parse(raw);
       if (body.events && Array.isArray(body.events)) {
+        Logger.log("doPost: LINE webhook detected, events=" + body.events.length);
         return handleLineWebhook_(e, body);
       }
     }
-  } catch (_) {
-    // JSON パース失敗 → 通常のAPIとして処理
+  } catch (err) {
+    Logger.log("doPost: JSON parse error: " + String(err));
   }
   return handle_(e, /*isGet=*/false);
 }
 function doGet(e) {
+  var params = (e && e.parameter) ? JSON.stringify(e.parameter) : "{}";
+  Logger.log("doGet: params=" + params.slice(0, 200));
   // LINE Webhook プロキシ経由: ?lineWebhook=base64encodedJSON
   try {
     var lw = (e && e.parameter && e.parameter.lineWebhook) ? e.parameter.lineWebhook : "";
     if (lw) {
       var decoded = Utilities.newBlob(Utilities.base64Decode(lw)).getDataAsString();
+      Logger.log("doGet: lineWebhook decoded=" + decoded.slice(0, 200));
       var body = JSON.parse(decoded);
       if (body.events && Array.isArray(body.events)) {
         return handleLineWebhook_(e, body);
       }
     }
-  } catch (_) {}
+  } catch (err) { Logger.log("doGet: lineWebhook error: " + String(err)); }
   return handle_(e, /*isGet=*/true);
 }
 
@@ -46,6 +51,7 @@ function handle_(e, isGet) {
   try {
     var p = isGet ? (e && e.parameter) : parseJson_(e);
     var t = String(p.type || "").toLowerCase();
+    Logger.log("handle_: type=" + t + " isGet=" + isGet + " keys=" + JSON.stringify(Object.keys(p || {})));
     if (!t || t === "ping")         return out_(e, { ok:true, ts: jstNow_() });
 
     if (t === "state")              return handleState_(e, p);
@@ -293,21 +299,28 @@ function handleSyncStaff_(e, p) {
 }
 
 /******************** LINE Webhook プロキシ経由 ********************/
+var _proxyDebug = [];
 function handleLineWebhookProxy_(e, p) {
+  _proxyDebug = [];
   var data = String(p.data || "");
-  if (!data) return out_(e, { ok:true, processed:0 });
+  Logger.log("handleLineWebhookProxy_: data.length=" + data.length + " keys=" + JSON.stringify(Object.keys(p || {})));
+  if (!data) return out_(e, { ok:true, processed:0, debug:"no data" });
   var decoded = Utilities.newBlob(Utilities.base64Decode(data)).getDataAsString();
+  Logger.log("handleLineWebhookProxy_: decoded=" + decoded.slice(0, 300));
   var body = JSON.parse(decoded);
   var events = (body && body.events) ? body.events : [];
+  var errors = [];
   var count = 0;
   for (var i = 0; i < events.length; i++) {
     var ev = events[i];
+    Logger.log("proxy event[" + i + "]: type=" + ev.type + " msgType=" + (ev.message ? ev.message.type : "N/A"));
     try {
       if (ev.type === "follow") { handleLineFollow_(ev); count++; }
       else if (ev.type === "message" && ev.message && ev.message.type === "text") { handleLineMessage_(ev); count++; }
-    } catch (err) { Logger.log("linewebhook proxy error: " + String(err)); }
+      else { Logger.log("proxy event skipped: " + ev.type); }
+    } catch (err) { errors.push(String(err && err.stack ? err.stack : err)); Logger.log("proxy event error: " + String(err && err.stack ? err.stack : err)); }
   }
-  return out_(e, { ok:true, processed:count });
+  return out_(e, { ok:true, processed:count, eventCount:events.length, errors:errors, debug:_proxyDebug });
 }
 
 /******************** LINE連携確認 ********************/

@@ -9,16 +9,20 @@
 /** LINE Webhook 受信ハンドラ（doPost から呼ばれる） */
 function handleLineWebhook_(e, body) {
   var events = body.events || [];
+  Logger.log("handleLineWebhook_: eventCount=" + events.length + " body=" + JSON.stringify(body).slice(0, 300));
   for (var i = 0; i < events.length; i++) {
     var ev = events[i];
+    Logger.log("LINE event[" + i + "]: type=" + ev.type + " msgType=" + (ev.message ? ev.message.type : "N/A") + " source=" + JSON.stringify(ev.source || {}));
     try {
       if (ev.type === "follow") {
         handleLineFollow_(ev);
       } else if (ev.type === "message" && ev.message && ev.message.type === "text") {
         handleLineMessage_(ev);
+      } else {
+        Logger.log("LINE event skipped: type=" + ev.type);
       }
     } catch (err) {
-      Logger.log("LINE event error: " + String(err));
+      Logger.log("LINE event error: " + String(err && err.stack ? err.stack : err));
     }
   }
   // LINE には 200 OK を返す
@@ -83,58 +87,83 @@ function handleLineFollow_(ev) {
   sendLinePush_(uid, "\u53cb\u3060\u3061\u8ffd\u52a0\u3042\u308a\u304c\u3068\u3046\u3054\u3056\u3044\u307e\u3059\uff01\u7ba1\u7406\u8005\u306b\u30b9\u30bf\u30c3\u30d5\u767b\u9332\u3092\u4f9d\u983c\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
 }
 
-/** テキストメッセージ処理（将来拡張用） */
+/** テキストメッセージ処理 */
 function handleLineMessage_(ev) {
   var uid = ev.source && ev.source.userId ? ev.source.userId : "";
   var text = String(ev.message.text || "").trim();
+  Logger.log("handleLineMessage_: uid=" + uid + " text=" + text);
 
   // プロキシ経由ではreplyTokenが期限切れのため、常にpushで送信する
   function reply(msg) {
+    Logger.log("LINE reply: " + msg);
     sendLinePush_(uid, msg);
   }
 
-  // LINE連携コマンド：「連携 メールアドレス」
-  if (/^(\u9023\u643a|link)\s+/.test(text)) {
-    var emailInput = text.replace(/^(\u9023\u643a|link)\s+/, "").trim().toLowerCase();
-    if (!emailInput || emailInput.indexOf("@") < 0) {
-      reply("\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u306e\u5f62\u5f0f\u304c\u6b63\u3057\u304f\u3042\u308a\u307e\u305b\u3093\u3002\n\u4f8b\uff1a\u9023\u643a example@gmail.com");
+  // メールアドレスを抽出（「連携 email」または直接メールアドレスのみ）
+  var emailInput = "";
+  if (/^(連携|link)\s+/i.test(text)) {
+    emailInput = text.replace(/^(連携|link)\s+/i, "").trim().toLowerCase();
+  } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+    // メールアドレスだけ送信された場合も連携扱い
+    emailInput = text.toLowerCase();
+  }
+
+  if (emailInput) {
+    if (emailInput.indexOf("@") < 0) {
+      reply("メールアドレスの形式が正しくありません。\n例：連携 example@gmail.com");
       return;
     }
-    var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
-    if (!sh) { reply("\u30b9\u30bf\u30c3\u30d5\u30b7\u30fc\u30c8\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002"); return; }
+    if (!uid) {
+      Logger.log("LINE連携エラー: uidが空です");
+      return;
+    }
+    var sh = getDB_().getSheetByName("スタッフ");
+    if (!sh) { reply("スタッフシートが見つかりません。"); return; }
     var hm = headerMap_(sh);
-    var colEmail = hm.find(["\u30e1\u30fc\u30eb", "\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9", "email", "Email", "mail", "\u30b9\u30bf\u30c3\u30d5ID", "staffId", "id"], true);
+    var colEmail = hm.find(["メール", "メールアドレス", "email", "Email", "mail", "スタッフID", "staffId", "id"], true);
     var colUID   = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
-    var colNM    = hm.find(["\u540d\u524d", "name"], false);
-    if (colUID < 0) { reply("LINE UID\u5217\u304c\u30b7\u30fc\u30c8\u306b\u3042\u308a\u307e\u305b\u3093\u3002\u7ba1\u7406\u8005\u306b\u9023\u7d61\u3057\u3066\u304f\u3060\u3055\u3044\u3002"); return; }
+    var colNM    = hm.find(["名前", "name"], false);
+    Logger.log("LINE連携: colEmail=" + colEmail + " colUID=" + colUID + " colNM=" + colNM);
+    if (colUID < 0) { reply("LINE UID列がシートにありません。管理者に連絡してください。"); return; }
     var last = sh.getLastRow();
-    if (last < 2) { reply("\u30b9\u30bf\u30c3\u30d5\u304c\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002"); return; }
+    if (last < 2) { reply("スタッフが登録されていません。"); return; }
     var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+    Logger.log("LINE連携: 検索email=" + emailInput + " 行数=" + vals.length);
     for (var k = 0; k < vals.length; k++) {
       var rowEmail = String(vals[k][colEmail - 1] || "").toLowerCase().trim();
       if (rowEmail === emailInput) {
         var existingUid = String(vals[k][colUID - 1] || "").trim();
         if (existingUid && existingUid !== uid) {
-          reply("\u3053\u306e\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u306f\u65e2\u306b\u5225\u306eLINE\u30a2\u30ab\u30a6\u30f3\u30c8\u3068\u9023\u643a\u3055\u308c\u3066\u3044\u307e\u3059\u3002");
+          reply("このメールアドレスは既に別のLINEアカウントと連携されています。");
+          return;
+        }
+        if (existingUid === uid) {
+          var staffNameAlready = colNM > 0 ? String(vals[k][colNM - 1] || "") : "";
+          reply("✅ 既にLINE連携済みです。\nスタッフ: " + (staffNameAlready || emailInput));
           return;
         }
         sh.getRange(2 + k, colUID).setValue(uid);
         var staffName = colNM > 0 ? String(vals[k][colNM - 1] || "") : "";
-        reply("\u2705 LINE\u9023\u643a\u304c\u5b8c\u4e86\u3057\u307e\u3057\u305f\uff01\n\u30b9\u30bf\u30c3\u30d5: " + (staffName || emailInput) + "\n\u4eca\u5f8c\u30b7\u30d5\u30c8\u3084\u6253\u523b\u306e\u901a\u77e5\u304c\u5c4a\u304d\u307e\u3059\u3002");
+        Logger.log("LINE連携成功: " + emailInput + " → " + uid.slice(0,8) + "...");
+        reply("✅ LINE連携が完了しました！\nスタッフ: " + (staffName || emailInput) + "\n今後シフトや打刻の通知が届きます。");
         return;
       }
     }
-    reply("\u30e1\u30fc\u30eb\u30a2\u30c9\u30ec\u30b9\u300c" + emailInput + "\u300d\u306f\u30b9\u30bf\u30c3\u30d5\u306b\u767b\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\n\u7ba1\u7406\u8005\u306b\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
+    reply("メールアドレス「" + emailInput + "」はスタッフに登録されていません。\n管理者に確認してください。");
     return;
   }
 
   // 簡易コマンド
-  if (text === "\u30b7\u30d5\u30c8" || text === "shift") {
-    reply("\u30b7\u30d5\u30c8\u7ba1\u7406\u306f\u30ea\u30c3\u30c1\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u300c\u30b7\u30d5\u30c8\u7ba1\u7406\u300d\u3092\u30bf\u30c3\u30d7\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
+  if (text === "シフト" || text === "shift") {
+    reply("シフト管理はリッチメニューから「シフト管理」をタップしてください。");
     return;
   }
-  if (text === "\u51fa\u52e4" || text === "\u9000\u52e4") {
-    reply("\u51fa\u9000\u52e4\u306f\u30ea\u30c3\u30c1\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u300c\u51fa\u9000\u52e4\u300d\u3092\u30bf\u30c3\u30d7\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
+  if (text === "出勤" || text === "退勤") {
+    reply("出退勤はリッチメニューから「出退勤」をタップしてください。");
+    return;
+  }
+  if (text === "ヘルプ" || text === "help") {
+    reply("【使い方】\n・LINE連携：メールアドレスを送信\n　例：example@gmail.com\n・シフト確認：「シフト」と送信\n・出退勤：「出勤」「退勤」と送信");
     return;
   }
 }
@@ -145,11 +174,12 @@ function handleLineMessage_(ev) {
 
 /** Push Message（1対1送信） */
 function sendLinePush_(lineUid, message) {
-  if (!lineUid) return;
+  if (!lineUid) { _proxyDebug.push("push:no_uid"); return; }
   var token = getLineToken_();
-  if (!token) { Logger.log("LINE_CHANNEL_ACCESS_TOKEN not set"); return; }
+  if (!token) { _proxyDebug.push("push:no_token"); return; }
+  _proxyDebug.push("push:to=" + lineUid.slice(0,8) + "...");
   try {
-    UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
       method: "post",
       headers: {
         "Content-Type": "application/json",
@@ -161,8 +191,9 @@ function sendLinePush_(lineUid, message) {
       }),
       muteHttpExceptions: true,
     });
+    _proxyDebug.push("push:status=" + res.getResponseCode() + " body=" + res.getContentText().slice(0, 100));
   } catch (e) {
-    Logger.log("LINE push error: " + String(e));
+    _proxyDebug.push("push:error=" + String(e));
   }
 }
 
