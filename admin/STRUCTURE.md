@@ -36,19 +36,29 @@
 - データ: `getConfirmedShifts` API
 
 ### 4. 通知設定 (`tab: "notifications"`)
-左右2カラム:
+左右2カラム — **全てLINE Messaging APIで送信**
 
-**左: 固定通知（PWA化時 / スタッフ向け）**
-- PWA プッシュ通知を利用（Switch）
-- Topic 入力欄
+**左: 定期通知（LINE → スタッフ向け）**
+- LINE通知を利用（Switch: `useLINE`）
 - シフト提出 締切3日前リマインド（Switch + 時刻 + テンプレート）
 - シフト提出 締切当日（Switch + 時刻 + テンプレート）
 
-**右: イベント通知**
+**右: イベント通知（LINE自動送信）**
 - シフト確定（スタッフ向け）（Switch + テンプレート）
 - シフト提出（管理者向け）（Switch + テンプレート）
-- プレースホルダ: `{staffName}`, `{month}`, `{deadlineDate}`, `{submittedAt}`, `{confirmedAt}`
+- 出勤記録（スタッフ向け）（Switch + テンプレート）
+- 退勤記録（スタッフ向け）（Switch + テンプレート）
+- プレースホルダ: `{staffName}`, `{month}`, `{deadlineDate}`, `{submittedAt}`, `{confirmedAt}`, `{clockInTime}`, `{clockOutTime}`, `{hours}`, `{amount}`
 - 「保存」→ `saveNotifications` API
+
+**LINE通知の仕組み（GAS側 line.gs）**
+- `sendLinePush_(lineUid, message)` — LINE Push API で1対1送信
+- `notifyShiftSubmitted_()` — 管理者UID宛（Script Properties: `LINE_ADMIN_UID`）
+- `notifyShiftConfirmed_()` — スタッフのLINE UID宛
+- `notifyShiftSubmittedToStaff_()` — スタッフに提出確認
+- `notifyClockIn_()` / `notifyClockOut_()` — 打刻通知
+- `sendShiftDeadlineReminder()` — 月次トリガー（毎月19日）で全スタッフに締切リマインド
+- スタッフの LINE UID はスタッフシートの「LINE UID」列で管理
 
 ### 5. システム (`tab: "system"`)
 - GAS WebApp URL 入力欄（`window.__GAS_URL__` に反映）
@@ -113,12 +123,11 @@
     }
   ],
   fixed: {
-    enablePWA: boolean,
-    topic: string,
+    useLINE: boolean,          // LINE通知の有効/無効
     shiftSubmitReminder3DaysBefore: {
       enabled: boolean,
       time: "HH:mm",
-      template: string
+      template: string         // LINE送信テンプレート
     },
     shiftDeadlineDay: {
       enabled: boolean,
@@ -128,7 +137,9 @@
   },
   events: {
     shiftConfirmedForStaff: { enabled: boolean, template: string },
-    shiftSubmittedForAdmin: { enabled: boolean, template: string }
+    shiftSubmittedForAdmin: { enabled: boolean, template: string },
+    clockIn:  { enabled: boolean, template: string },
+    clockOut: { enabled: boolean, template: string }
   }
 }
 ```
@@ -206,8 +217,7 @@
     days: []
   }],
   fixed: {
-    enablePWA: false,
-    topic: "shift",
+    useLINE: true,
     shiftSubmitReminder3DaysBefore: {
       enabled: true,
       time: "09:00",
@@ -227,6 +237,14 @@
     shiftSubmittedForAdmin: {
       enabled: true,
       template: "【管理者通知】{staffName}さんが {month} の希望シフトを提出しました（提出日: {submittedAt}）。"
+    },
+    clockIn: {
+      enabled: true,
+      template: "{staffName}さんの出勤を記録しました。\n出勤時刻: {clockInTime}"
+    },
+    clockOut: {
+      enabled: true,
+      template: "{staffName}さんの退勤を記録しました。\n出勤: {clockInTime} → 退勤: {clockOutTime}\n勤務時間: {hours}h / {amount}円"
     }
   }
 }

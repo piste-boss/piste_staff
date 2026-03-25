@@ -225,49 +225,82 @@ function sendLineReply_(replyToken, message) {
   }
 }
 
+/** 通知設定を読み込んでテンプレートを適用するヘルパー */
+function applyTemplate_(templateStr, vars) {
+  var msg = String(templateStr || "");
+  for (var k in vars) {
+    msg = msg.replace(new RegExp("\\{" + k + "\\}", "g"), String(vars[k] || ""));
+  }
+  return msg;
+}
+
+/** LINE通知が有効かチェック */
+function isLineNotifyEnabled_() {
+  var n = readNotifications_();
+  return n.fixed.useLINE !== false;
+}
+
 /** シフト提出通知（管理者向け） */
 function notifyShiftSubmitted_(staffName, month) {
+  if (!isLineNotifyEnabled_()) return;
   var adminUid = PropertiesService.getScriptProperties().getProperty("LINE_ADMIN_UID");
   if (!adminUid) return;
-  var msg = (staffName || "\u30b9\u30bf\u30c3\u30d5") + "\u304c" + month + "\u306e\u30b7\u30d5\u30c8\u3092\u63d0\u51fa\u3057\u307e\u3057\u305f\u3002";
+  var n = readNotifications_();
+  var cfg = n.events.shiftSubmittedForAdmin;
+  if (cfg && cfg.enabled === false) return;
+  var tmpl = (cfg && cfg.template) || "【管理者通知】{staffName}さんが {month} の希望シフトを提出しました（提出日: {submittedAt}）。";
+  var msg = applyTemplate_(tmpl, { staffName: staffName || "スタッフ", month: month, submittedAt: jstNow_() });
   sendLinePush_(adminUid, msg);
 }
 
 /** シフト確定通知（スタッフ向け） */
 function notifyShiftConfirmed_(lineUid, staffName, month) {
-  if (!lineUid) return;
-  var msg = (staffName || "") + "\u3055\u3093\u3001" + month + "\u306e\u30b7\u30d5\u30c8\u304c\u78ba\u5b9a\u3057\u307e\u3057\u305f\u3002\u30a2\u30d7\u30ea\u3067\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002";
+  if (!lineUid || !isLineNotifyEnabled_()) return;
+  var n = readNotifications_();
+  var cfg = n.events.shiftConfirmedForStaff;
+  if (cfg && cfg.enabled === false) return;
+  var tmpl = (cfg && cfg.template) || "{staffName}さん、{month} のシフトが確定しました。確定日: {confirmedAt}。アプリでご確認ください。";
+  var msg = applyTemplate_(tmpl, { staffName: staffName || "", month: month, confirmedAt: jstNow_() });
   sendLinePush_(lineUid, msg);
 }
 
 /** シフト提出確認通知（スタッフ向け） */
 function notifyShiftSubmittedToStaff_(tenantId, staffId, staffName, month, count) {
+  if (!isLineNotifyEnabled_()) return;
   var uid = getLineUidByStaffId_(tenantId, staffId);
   if (!uid) return;
-  var msg = (staffName || "") + "\u3055\u3093\u3001" + month + "\u306e\u30b7\u30d5\u30c8\u3092" + count + "\u4ef6\u63d0\u51fa\u3057\u307e\u3057\u305f\u3002";
+  var msg = (staffName || "") + "さん、" + month + " のシフトを" + count + "件提出しました。";
   sendLinePush_(uid, msg);
 }
 
 /** 出勤通知（スタッフ向け） */
 function notifyClockIn_(tenantId, staffId, staffName, clockInTime) {
+  if (!isLineNotifyEnabled_()) return;
   var uid = getLineUidByStaffId_(tenantId, staffId);
   if (!uid) return;
-  var time = String(clockInTime || "").slice(11, 16); // HH:mm
-  var msg = (staffName || "") + "\u3055\u3093\u306e\u51fa\u52e4\u3092\u8a18\u9332\u3057\u307e\u3057\u305f\u3002\n\u51fa\u52e4\u6642\u523b: " + time;
+  var n = readNotifications_();
+  var cfg = n.events.clockIn;
+  if (cfg && cfg.enabled === false) return;
+  var time = String(clockInTime || "").slice(11, 16);
+  var tmpl = (cfg && cfg.template) || "{staffName}さんの出勤を記録しました。\n出勤時刻: {clockInTime}";
+  var msg = applyTemplate_(tmpl, { staffName: staffName || "", clockInTime: time });
   sendLinePush_(uid, msg);
 }
 
 /** 退勤通知（スタッフ向け） */
 function notifyClockOut_(tenantId, staffId, staffName, clockInTime, clockOutTime, payroll) {
+  if (!isLineNotifyEnabled_()) return;
   var uid = getLineUidByStaffId_(tenantId, staffId);
   if (!uid) return;
+  var n = readNotifications_();
+  var cfg = n.events.clockOut;
+  if (cfg && cfg.enabled === false) return;
   var inTime = String(clockInTime || "").slice(11, 16);
   var outTime = String(clockOutTime || "").slice(11, 16);
   var hours = payroll && payroll.hours ? Number(payroll.hours).toFixed(2) : "0";
   var amount = payroll && payroll.amount ? payroll.amount : 0;
-  var msg = (staffName || "") + "\u3055\u3093\u306e\u9000\u52e4\u3092\u8a18\u9332\u3057\u307e\u3057\u305f\u3002\n" +
-    "\u51fa\u52e4: " + inTime + " \u2192 \u9000\u52e4: " + outTime + "\n" +
-    "\u52e4\u52d9\u6642\u9593: " + hours + "h / " + amount + "\u5186";
+  var tmpl = (cfg && cfg.template) || "{staffName}さんの退勤を記録しました。\n出勤: {clockInTime} → 退勤: {clockOutTime}\n勤務時間: {hours}h / {amount}円";
+  var msg = applyTemplate_(tmpl, { staffName: staffName || "", clockInTime: inTime, clockOutTime: outTime, hours: hours, amount: amount });
   sendLinePush_(uid, msg);
 }
 
@@ -301,28 +334,70 @@ function getLineUidByStaffId_(tenantId, staffId) {
  *   種類: 時間主導型 → 月ベースのタイマー → 19日 → 午前9時〜10時
  *************************/
 function sendShiftDeadlineReminder() {
-  var sh = getDB_().getSheetByName("\u30b9\u30bf\u30c3\u30d5");
+  if (!isLineNotifyEnabled_()) return;
+  var n = readNotifications_();
+  var cfg = n.fixed.shiftDeadlineDay;
+  if (cfg && cfg.enabled === false) return;
+
+  var sh = getDB_().getSheetByName("スタッフ");
   if (!sh) return;
   var hm = headerMap_(sh);
   var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
-  var colNM  = hm.find(["\u540d\u524d", "name"], false);
+  var colNM  = hm.find(["名前", "name"], false);
   if (colUID < 0) return;
 
   var last = sh.getLastRow();
   if (last < 2) return;
 
-  // 翌月の年月を計算
   var now = new Date();
   var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   var ym = Utilities.formatDate(nextMonth, "Asia/Tokyo", "yyyy-MM");
+  var deadlineDate = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM-dd");
+
+  var tmpl = (cfg && cfg.template) || "{staffName}さん、本日が {month} のシフト提出締切日です（{deadlineDate}）。提出がまだの方は至急お願いします。";
 
   var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
   for (var i = 0; i < vals.length; i++) {
     var uid = String(vals[i][colUID - 1] || "").trim();
     var name = colNM > 0 ? String(vals[i][colNM - 1] || "") : "";
     if (!uid) continue;
-    var msg = (name ? name + "\u3055\u3093\u3001" : "") +
-      "\u660e\u65e5\u304c" + ym + "\u306e\u30b7\u30d5\u30c8\u63d0\u51fa\u7de0\u5207\u3067\u3059\u3002\n\u307e\u3060\u63d0\u51fa\u3057\u3066\u3044\u306a\u3044\u5834\u5408\u306f\u3001\u4eca\u65e5\u4e2d\u306b\u63d0\u51fa\u3057\u3066\u304f\u3060\u3055\u3044\u3002";
+    var msg = applyTemplate_(tmpl, { staffName: name, month: ym, deadlineDate: deadlineDate });
+    sendLinePush_(uid, msg);
+  }
+}
+
+/** シフト提出 締切3日前リマインダー（GASトリガーで実行） */
+function sendShiftReminder3DaysBefore() {
+  if (!isLineNotifyEnabled_()) return;
+  var n = readNotifications_();
+  var cfg = n.fixed.shiftSubmitReminder3DaysBefore;
+  if (cfg && cfg.enabled === false) return;
+
+  var sh = getDB_().getSheetByName("スタッフ");
+  if (!sh) return;
+  var hm = headerMap_(sh);
+  var colUID = hm.find(["LINE UID", "lineUid", "LINE_UID"], false);
+  var colNM  = hm.find(["名前", "name"], false);
+  if (colUID < 0) return;
+
+  var last = sh.getLastRow();
+  if (last < 2) return;
+
+  var now = new Date();
+  var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  var ym = Utilities.formatDate(nextMonth, "Asia/Tokyo", "yyyy-MM");
+  // 締切日 = 3日後
+  var deadline = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  var deadlineDate = Utilities.formatDate(deadline, "Asia/Tokyo", "yyyy-MM-dd");
+
+  var tmpl = (cfg && cfg.template) || "{staffName}さん、{month} のシフト提出締切まであと3日です。期限: {deadlineDate}。忘れずに提出してください。";
+
+  var vals = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var uid = String(vals[i][colUID - 1] || "").trim();
+    var name = colNM > 0 ? String(vals[i][colNM - 1] || "") : "";
+    if (!uid) continue;
+    var msg = applyTemplate_(tmpl, { staffName: name, month: ym, deadlineDate: deadlineDate });
     sendLinePush_(uid, msg);
   }
 }
