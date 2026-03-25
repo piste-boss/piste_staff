@@ -585,7 +585,6 @@ function handleSubmitShifts_(e, p) {
   }
   if (rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, 8).setValues(rows);
 
-  // LINE通知：管理者にシフト提出を通知
   // LINE通知：管理者にシフト提出を通知 & スタッフに提出確認を通知
   try { notifyShiftSubmitted_(name || sid, month); } catch (_) {}
   try { notifyShiftSubmittedToStaff_(tid, sid, name, month, rows.length); } catch (_) {}
