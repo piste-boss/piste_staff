@@ -91,7 +91,7 @@ function handleLineFollow_(ev) {
 function handleLineMessage_(ev) {
   var uid = ev.source && ev.source.userId ? ev.source.userId : "";
   var text = String(ev.message.text || "").trim();
-  Logger.log("handleLineMessage_: uid=" + uid + " text=" + text);
+  writeDebugLog_("handleLineMessage_: uid=" + (uid ? uid.slice(0,8) + "..." : "EMPTY") + " text=" + text);
 
   // プロキシ経由ではreplyTokenが期限切れのため、常にpushで送信する
   function reply(msg) {
@@ -174,10 +174,11 @@ function handleLineMessage_(ev) {
 
 /** Push Message（1対1送信） */
 function sendLinePush_(lineUid, message) {
-  if (!lineUid) { _proxyDebug.push("push:no_uid"); return; }
+  if (!lineUid) { _proxyDebug.push("push:no_uid"); writeDebugLog_("sendLinePush_: NO UID"); return; }
   var token = getLineToken_();
-  if (!token) { _proxyDebug.push("push:no_token"); return; }
+  if (!token) { _proxyDebug.push("push:no_token"); writeDebugLog_("sendLinePush_: NO TOKEN"); return; }
   _proxyDebug.push("push:to=" + lineUid.slice(0,8) + "...");
+  writeDebugLog_("sendLinePush_: to=" + lineUid.slice(0,8) + "... msg=" + message.slice(0, 50));
   try {
     var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
       method: "post",
@@ -191,9 +192,13 @@ function sendLinePush_(lineUid, message) {
       }),
       muteHttpExceptions: true,
     });
-    _proxyDebug.push("push:status=" + res.getResponseCode() + " body=" + res.getContentText().slice(0, 100));
+    var status = res.getResponseCode();
+    var body = res.getContentText().slice(0, 150);
+    _proxyDebug.push("push:status=" + status + " body=" + body);
+    writeDebugLog_("sendLinePush_: status=" + status + " body=" + body);
   } catch (e) {
     _proxyDebug.push("push:error=" + String(e));
+    writeDebugLog_("sendLinePush_: ERROR=" + String(e));
   }
 }
 

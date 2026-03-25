@@ -1,3 +1,15 @@
+/** 認証テスト用（実行後に削除OK） */
+function testAuth() {
+  var token = PropertiesService.getScriptProperties().getProperty("LINE_CHANNEL_ACCESS_TOKEN");
+  Logger.log("token: " + (token ? token.slice(0,10) + "..." : "NOT SET"));
+  var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/info", {
+    headers: { "Authorization": "Bearer " + token },
+    muteHttpExceptions: true,
+  });
+  Logger.log("status: " + res.getResponseCode());
+  Logger.log("body: " + res.getContentText().slice(0, 200));
+}
+
 /****************************************************
  * Piste 勤怠・提出・管理 API（ES5 / JSON & JSONP / HTMLサービス）
  * 2025-10-10 完全版（提出・確定ともにE列「日付」ベース）
@@ -30,20 +42,42 @@ function doPost(e) {
 }
 function doGet(e) {
   var params = (e && e.parameter) ? JSON.stringify(e.parameter) : "{}";
-  Logger.log("doGet: params=" + params.slice(0, 200));
-  // LINE Webhook プロキシ経由: ?lineWebhook=base64encodedJSON
+  var debugLog = ["doGet:" + new Date().toISOString(), "params=" + params.slice(0, 200)];
   try {
+    // パターン1: ?lineWebhook=base64
     var lw = (e && e.parameter && e.parameter.lineWebhook) ? e.parameter.lineWebhook : "";
-    if (lw) {
-      var decoded = Utilities.newBlob(Utilities.base64Decode(lw)).getDataAsString();
-      Logger.log("doGet: lineWebhook decoded=" + decoded.slice(0, 200));
+    // パターン2: ?type=linewebhook&data=base64
+    var dataParam = (e && e.parameter && e.parameter.data) ? e.parameter.data : "";
+    var typeParam = (e && e.parameter && e.parameter.type) ? String(e.parameter.type).toLowerCase() : "";
+
+    var b64 = lw || (typeParam === "linewebhook" ? dataParam : "");
+    debugLog.push("b64.length=" + b64.length);
+
+    if (b64) {
+      var decoded = Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString();
+      debugLog.push("decoded=" + decoded.slice(0, 100));
       var body = JSON.parse(decoded);
-      if (body.events && Array.isArray(body.events)) {
+      var evCount = (body.events && Array.isArray(body.events)) ? body.events.length : 0;
+      debugLog.push("events=" + evCount);
+      if (evCount > 0) {
+        debugLog.push("ev0.type=" + (body.events[0].type || "?"));
+        writeDebugLog_(debugLog.join("\n"));
         return handleLineWebhook_(e, body);
       }
     }
-  } catch (err) { Logger.log("doGet: lineWebhook error: " + String(err)); }
+  } catch (err) { debugLog.push("ERROR:" + String(err)); }
+  writeDebugLog_(debugLog.join("\n"));
   return handle_(e, /*isGet=*/true);
+}
+
+/** デバッグログをスプレッドシートの「デバッグ」シートに書く */
+function writeDebugLog_(text) {
+  try {
+    var ss = getDB_();
+    var sh = ss.getSheetByName("デバッグ");
+    if (!sh) { sh = ss.insertSheet("デバッグ"); sh.getRange(1,1).setValue("ログ"); }
+    sh.getRange(sh.getLastRow() + 1, 1).setValue(text);
+  } catch(_) {}
 }
 
 /** WebApp 入口（JSON/JSONP） */
