@@ -3,3 +3,7 @@
 
 [functions]
   directory = "functions"
+
+[[edge_functions]]
+  path = "/api/line-webhook"
+  function = "line-webhook"
