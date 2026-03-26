@@ -24,75 +24,60 @@ function normalize(u) {
   return u;
 }
 
+/** JSONP ヘルパ（GASのCORS制限を回避） */
+function jsonpExec(gasUrl, type, params = {}) {
+  return new Promise((resolve) => {
+    try {
+      const cbName = `__jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const qs = new URLSearchParams({ type, callback: cbName, _t: String(Date.now()) });
+      for (const [k, v] of Object.entries(params)) {
+        if (v == null) continue;
+        qs.set(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+      }
+      const script = document.createElement("script");
+      const timer = setTimeout(() => {
+        resolve({ ok: false, error: "jsonp_timeout" });
+        try { delete window[cbName]; } catch {}
+        script.remove();
+      }, 15000);
+      window[cbName] = (data) => {
+        clearTimeout(timer);
+        resolve(data);
+        try { delete window[cbName]; } catch {}
+        script.remove();
+      };
+      script.onerror = () => {
+        clearTimeout(timer);
+        resolve({ ok: false, error: "jsonp_error" });
+        try { delete window[cbName]; } catch {}
+        script.remove();
+      };
+      script.src = `${gasUrl}?${qs.toString()}`;
+      document.head.appendChild(script);
+    } catch (e) {
+      resolve({ ok: false, error: "jsonp_error", message: String(e?.message || e) });
+    }
+  });
+}
+
 export async function callApi(type, params = {}) {
   const gasUrl = getGasUrl();
   if (!gasUrl) return { ok: true, mock: true, reason: "no_api_base" };
 
-  const body = { type, ...params };
-
-  // Step 1: fetch POST text/plain
-  const tryPost = async (ct) => {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    try {
-      const res = await fetch(gasUrl, {
-        method: "POST",
-        cache: "no-store",
-        redirect: "follow",
-        mode: "cors",
-        headers: { "Content-Type": ct },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
-      clearTimeout(timer);
-      const text = await res.text().catch(() => "");
-      try {
-        return text ? JSON.parse(text) : {};
-      } catch {
-        return { ok: false, error: "invalid_json", body: text?.slice(0, 500) };
-      }
-    } catch (e) {
-      clearTimeout(timer);
-      return { ok: false, error: "failed_to_fetch", message: String(e?.message ?? e) };
-    }
-  };
-
-  let result = await tryPost("text/plain;charset=utf-8");
+  // JSONP優先（GASはCORSヘッダーを返さないため）
+  const result = await jsonpExec(gasUrl, type, params);
   if (result?.ok !== false) return result;
 
-  result = await tryPost("application/json");
-  if (result?.ok !== false) return result;
-
-  // Step 2: JSONP fallback for read endpoints
-  const readTypes = new Set(["ping", "getAdminState", "getSubmittedShifts", "state", "getConfirmedShifts"]);
-  if (readTypes.has(type)) {
-    try {
-      const cbName = `__jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const qs = new URLSearchParams({ type, callback: cbName });
-      for (const [k, v] of Object.entries(params)) {
-        if (typeof v === "string") qs.set(k, v);
-        else if (v != null) qs.set(k, JSON.stringify(v));
-      }
-      const script = document.createElement("script");
-      const p = new Promise((resolve) => {
-        window[cbName] = (data) => {
-          resolve(data);
-          try { delete window[cbName]; } catch {}
-          script.remove();
-        };
-        script.onerror = () => {
-          resolve({ ok: false, error: "jsonp_error" });
-          try { delete window[cbName]; } catch {}
-          script.remove();
-        };
-      });
-      script.src = `${gasUrl}?${qs.toString()}`;
-      document.head.appendChild(script);
-      result = await p;
-    } catch (e) {
-      result = { ok: false, error: "jsonp_error", message: String(e?.message || e) };
-    }
+  // フォールバック: no-cors POST（レスポンスは読めないが送信はできる）
+  try {
+    await fetch(gasUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ type, ...params }),
+    });
+    return { ok: true, via: "no-cors" };
+  } catch (e) {
+    return { ok: false, error: "all_failed", message: String(e?.message || e) };
   }
-
-  return result;
 }
