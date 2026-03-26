@@ -328,6 +328,11 @@ function StaffApp() {
         <div className="mt-3 text-xs text-gray-500">
           {"* \u30ab\u30ec\u30f3\u30c0\u30fc\u306e\u65e5\u4ed8\u3092\u30bf\u30c3\u30d7\u3057\u3066\u30b7\u30d5\u30c8\u5e0c\u671b\u3092\u9078\u629e\u3057\u3001\u300c\u30b7\u30d5\u30c8\u63d0\u51fa\u300d\u3067\u9001\u4fe1\u3057\u307e\u3059\u3002"}
         </div>
+
+        {/* 打刻ページへのリンク */}
+        <a href="clock.html" className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-500 text-white font-semibold shadow-sm active:bg-green-600 no-underline">
+          {"\u23f0 \u51fa\u9000\u52e4\u6253\u523b"}
+        </a>
       </main>
 
       <main className="p-4 pb-28" style={{display: tab === "settings" ? "block" : "none"}}>
