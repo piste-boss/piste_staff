@@ -140,7 +140,7 @@ export function DesiredShiftsTab({
                   <tr key={dateStr} className={`${dowCls || "hover:bg-slate-50"} ${isShort ? "ring-2 ring-inset ring-red-500 bg-red-50/50" : ""}`}>
                     <td className={`sticky left-0 z-10 px-3 py-1.5 border-b border-r whitespace-nowrap font-medium text-xs ${isShort ? "bg-red-50 text-red-700" : (dowCls || "bg-white")}`}>
                       {d.getDate()}({dayLabel(d)})
-                      {isShort && <span className="ml-1 text-red-500 font-bold">!</span>}
+                      {isShort && <span className="ml-1 text-red-500 font-bold text-lg leading-none">!</span>}
                     </td>
                     {validStaff.map((s) => {
                       const wish = allStaffWishes[s.staffId]?.[dateStr] || "";
