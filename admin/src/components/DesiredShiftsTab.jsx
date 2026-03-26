@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Save, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Save, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
@@ -15,6 +15,7 @@ export function DesiredShiftsTab({
 }) {
   const [editMode, setEditMode] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const loading = useRef(false);
 
   const staffObj = state.staff.find((s) => s.staffId === selectedStaff) || state.staff[0];
@@ -28,6 +29,7 @@ export function DesiredShiftsTab({
   const pullSubmissions = async () => {
     if (!selectedStaff || !currentMonth || loading.current) return;
     loading.current = true;
+    setSyncing(true);
     try {
       const res = await callApi("getSubmittedShifts", {
         tenantId: staffObj?.tenantId || "",
@@ -62,8 +64,16 @@ export function DesiredShiftsTab({
       }
     } finally {
       loading.current = false;
+      setSyncing(false);
     }
   };
+
+  // 自動同期: スタッフ・月が変わったら自動取得
+  useEffect(() => {
+    if (selectedStaff && currentMonth) {
+      pullSubmissions();
+    }
+  }, [selectedStaff, currentMonth]);
 
   const toggleCell = (dateStr) => {
     if (editMode) {
@@ -132,7 +142,10 @@ export function DesiredShiftsTab({
             <Switch checked={editMode} onCheckedChange={setEditMode} />
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={pullSubmissions}>提出から反映</Button>
+            <Button size="sm" variant="outline" onClick={pullSubmissions} disabled={syncing}>
+              {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              再同期
+            </Button>
             <Button size="sm" variant="outline" onClick={bulkConfirm} disabled={confirming}>
               {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               一括確定
