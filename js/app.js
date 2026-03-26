@@ -331,7 +331,7 @@ function StaffApp() {
 
         {/* 打刻ページへのリンク */}
         <a href="clock.html" className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-500 text-white font-semibold shadow-sm active:bg-green-600 no-underline">
-          {"\u23f0 \u51fa\u9000\u52e4\u6253\u523b"}
+          {"\u51fa\u9000\u52e4\u6253\u523b"}
         </a>
       </main>
 
