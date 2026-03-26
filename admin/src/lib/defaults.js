@@ -1,7 +1,7 @@
 import { fmtYM, rid } from "./utils";
 
 export const DEFAULTS = {
-  apiBase: "",
+  apiBase: "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJVA6u5EpSKptrexvvqYh8jMSYiLIjprgXNOleAf2uWRbMyWg/exec",
   staff: [
     {
       tenantId: "piste",

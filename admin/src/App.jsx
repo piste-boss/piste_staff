@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Users, Calendar, Settings, Download, Upload, Save, Loader2 } from "lucide-react";
+import { Users, Calendar, Download, Upload, Save, Loader2 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { StaffTab } from "./components/StaffTab";
 import { DesiredShiftsTab } from "./components/DesiredShiftsTab";
 import { ConfirmedShiftsTab } from "./components/ConfirmedShiftsTab";
 
-import { SystemTab } from "./components/SystemTab";
+
 import { callApi, getGasUrl } from "./lib/api";
 import { DEFAULTS } from "./lib/defaults";
 import { loadState, saveState } from "./lib/storage";
@@ -123,20 +123,12 @@ export default function App() {
           </div>
         </div>
 
-        {getGasUrl() && (
-          <p className="text-sm text-slate-600 mb-4">
-            API: <span className="font-mono">{getGasUrl()}</span>
-          </p>
-        )}
-
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList>
             <TabsTrigger value="staff"><Users className="mr-2 h-4 w-4" />スタッフ情報</TabsTrigger>
             <TabsTrigger value="desired"><Calendar className="mr-2 h-4 w-4" />提出シフト</TabsTrigger>
             <TabsTrigger value="confirmed"><Calendar className="mr-2 h-4 w-4" />確定シフト</TabsTrigger>
-
-            <TabsTrigger value="system"><Settings className="mr-2 h-4 w-4" />システム</TabsTrigger>
           </TabsList>
 
           <TabsContent value="staff">
@@ -163,11 +155,6 @@ export default function App() {
               currentMonth={currentMonth} setCurrentMonth={setCurrentMonth}
               confirmedByDate={confirmedByDate} setConfirmedByDate={setConfirmedByDate}
             />
-          </TabsContent>
-
-
-          <TabsContent value="system">
-            <SystemTab state={state} setState={setState} onSaveAll={saveAll} saving={saving} />
           </TabsContent>
         </Tabs>
       </div>
