@@ -1,5 +1,22 @@
 [build]
   publish = "."
+  command = "cd admin && npm install && npm run build"
 
 [functions]
   directory = "functions"
+
+# /admin/ → admin/dist/index.html にリダイレクト
+[[redirects]]
+  from = "/admin"
+  to = "/admin/dist/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/"
+  to = "/admin/dist/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/dist/index.html"
+  status = 200
