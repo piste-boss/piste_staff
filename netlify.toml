@@ -5,7 +5,7 @@
 [functions]
   directory = "functions"
 
-# /admin/ → admin/dist/index.html にリダイレクト
+# admin アセットはそのまま配信（リダイレクトより先にファイルが存在すれば配信される）
 [[redirects]]
   from = "/admin"
   to = "/admin/dist/index.html"
@@ -13,10 +13,5 @@
 
 [[redirects]]
   from = "/admin/"
-  to = "/admin/dist/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/admin/*"
   to = "/admin/dist/index.html"
   status = 200
