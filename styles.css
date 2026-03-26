@@ -44,28 +44,28 @@ body {
 
 /* 曜日カラー：土曜日＝水色 */
 .fc .fc-day-sat {
-  background-color: #e0f2fe;
+  background-color: #e0f2fe !important;
 }
 .fc .fc-col-header-cell.fc-day-sat {
-  background-color: #bae6fd;
+  background-color: #bae6fd !important;
   color: #0284c7;
 }
 
 /* 曜日カラー：日曜日＝ピンク */
 .fc .fc-day-sun {
-  background-color: #fce7f3;
+  background-color: #fce7f3 !important;
 }
 .fc .fc-col-header-cell.fc-day-sun {
-  background-color: #fbcfe8;
+  background-color: #fbcfe8 !important;
   color: #be185d;
 }
 
 /* 曜日カラー：月曜日＝ピンク */
 .fc .fc-day-mon {
-  background-color: #fce7f3;
+  background-color: #fce7f3 !important;
 }
 .fc .fc-col-header-cell.fc-day-mon {
-  background-color: #fbcfe8;
+  background-color: #fbcfe8 !important;
   color: #be185d;
 }
 
