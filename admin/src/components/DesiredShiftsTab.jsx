@@ -9,7 +9,12 @@ import { fmtYM, isoDate, monthDays, dayLabel } from "../lib/utils";
 const WISH_STYLE = {
   "1": "bg-sky-100 text-sky-700",
   "2": "bg-emerald-100 text-emerald-700",
-  "×": "bg-rose-100 text-rose-700",
+};
+const WISH_STYLE_OFF_WEEKDAY = "bg-amber-100 text-amber-700";  // 火〜金の休み
+const WISH_STYLE_OFF_HOLIDAY = {                                // 土日月の休み（行背景と同色）
+  0: "bg-pink-50 text-pink-300",
+  1: "bg-pink-50 text-pink-300",
+  6: "bg-sky-50 text-sky-300",
 };
 const WISH_LABEL = { "1": "1", "2": "2", "×": "×" };
 
@@ -139,7 +144,12 @@ export function DesiredShiftsTab({
                     </td>
                     {validStaff.map((s) => {
                       const wish = allStaffWishes[s.staffId]?.[dateStr] || "";
-                      const style = WISH_STYLE[wish] || "";
+                      let style = WISH_STYLE[wish] || "";
+                      if (wish === "×") {
+                        style = isTueFri
+                          ? WISH_STYLE_OFF_WEEKDAY
+                          : (WISH_STYLE_OFF_HOLIDAY[dow] || "");
+                      }
                       return (
                         <td key={s.staffId} className={`px-3 py-1.5 border-b text-center text-xs font-semibold ${style}`}>
                           {WISH_LABEL[wish] || ""}
