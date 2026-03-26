@@ -137,21 +137,27 @@ export function DesiredShiftsTab({
                   : 2;
                 const isShort = isTueFri && workCount < 2;
                 return (
-                  <tr key={dateStr} className={`${dowCls || "hover:bg-slate-50"} ${isShort ? "ring-2 ring-inset ring-red-500 bg-red-50/50" : ""}`}>
-                    <td className={`sticky left-0 z-10 px-3 py-1.5 border-b border-r whitespace-nowrap font-medium text-xs ${isShort ? "bg-red-50 text-red-700" : (dowCls || "bg-white")}`}>
+                  <tr key={dateStr} className={`${dowCls || "hover:bg-slate-50"} ${isShort ? "ring-4 ring-inset ring-yellow-400 bg-yellow-50/50" : ""}`}>
+                    <td className={`sticky left-0 z-10 px-3 py-1.5 border-b border-r whitespace-nowrap font-medium text-xs ${isShort ? "bg-yellow-50 text-yellow-800" : (dowCls || "bg-white")}`}>
                       {d.getDate()}({dayLabel(d)})
-                      {isShort && <span className="ml-1 text-red-500 font-bold text-lg leading-none">!</span>}
+                      {isShort && <span className="ml-1 text-yellow-600 font-bold text-lg leading-none">!</span>}
                     </td>
                     {validStaff.map((s) => {
                       const wish = allStaffWishes[s.staffId]?.[dateStr] || "";
-                      let style = WISH_STYLE[wish] || "";
-                      if (wish === "×") {
-                        style = isTueFri
-                          ? WISH_STYLE_OFF_WEEKDAY
-                          : (WISH_STYLE_OFF_HOLIDAY[dow] || "");
+                      let cellCls = "px-3 py-1.5 border-b text-center text-xs font-semibold";
+                      if (wish === "1") {
+                        cellCls += " bg-sky-100 text-sky-700";
+                      } else if (wish === "2") {
+                        cellCls += " bg-emerald-100 text-emerald-700";
+                      } else if (wish === "×" && isTueFri) {
+                        cellCls += " bg-amber-100 text-amber-700";
+                      } else if (wish === "×" && dow === 6) {
+                        cellCls += " bg-sky-50 text-sky-300";
+                      } else if (wish === "×" && (dow === 0 || dow === 1)) {
+                        cellCls += " bg-pink-50 text-pink-300";
                       }
                       return (
-                        <td key={s.staffId} className={`px-3 py-1.5 border-b text-center text-xs font-semibold ${style}`}>
+                        <td key={s.staffId} className={cellCls}>
                           {WISH_LABEL[wish] || ""}
                         </td>
                       );
