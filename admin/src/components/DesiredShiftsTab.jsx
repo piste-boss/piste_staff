@@ -122,10 +122,20 @@ export function DesiredShiftsTab({
                 const dateStr = isoDate(d);
                 const dow = d.getDay();
                 const dowCls = DOW_COLOR[dow] || "";
+                // 火(2)〜金(5)で出勤者(1or2)が2人未満ならアラート
+                const isTueFri = dow >= 2 && dow <= 5;
+                const workCount = isTueFri
+                  ? validStaff.filter((s) => {
+                      const w = allStaffWishes[s.staffId]?.[dateStr] || "";
+                      return w === "1" || w === "2";
+                    }).length
+                  : 2;
+                const isShort = isTueFri && workCount < 2;
                 return (
-                  <tr key={dateStr} className={dowCls || "hover:bg-slate-50"}>
-                    <td className={`sticky left-0 z-10 px-3 py-1.5 border-b border-r whitespace-nowrap font-medium text-xs ${dowCls || "bg-white"}`}>
+                  <tr key={dateStr} className={`${dowCls || "hover:bg-slate-50"} ${isShort ? "ring-2 ring-inset ring-red-500 bg-red-50/50" : ""}`}>
+                    <td className={`sticky left-0 z-10 px-3 py-1.5 border-b border-r whitespace-nowrap font-medium text-xs ${isShort ? "bg-red-50 text-red-700" : (dowCls || "bg-white")}`}>
                       {d.getDate()}({dayLabel(d)})
+                      {isShort && <span className="ml-1 text-red-500 font-bold">!</span>}
                     </td>
                     {validStaff.map((s) => {
                       const wish = allStaffWishes[s.staffId]?.[dateStr] || "";
