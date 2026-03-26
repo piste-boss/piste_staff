@@ -10,8 +10,10 @@
   from = "/admin"
   to = "/admin/dist/index.html"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/admin/"
   to = "/admin/dist/index.html"
   status = 200
+  force = true
