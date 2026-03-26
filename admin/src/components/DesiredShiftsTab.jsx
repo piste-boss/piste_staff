@@ -1,27 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { Save, Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Send } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "./ui/select";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { callApi } from "../lib/api";
 import { fmtYM, isoDate, monthDays, dayLabel } from "../lib/utils";
 
-const WISH_STYLE = {
-  "1": "bg-sky-100 text-sky-700",
-  "2": "bg-emerald-100 text-emerald-700",
-};
-const WISH_STYLE_OFF_WEEKDAY = "bg-amber-100 text-amber-700";  // 火〜金の休み
-const WISH_STYLE_OFF_HOLIDAY = {                                // 土日月の休み（行背景と同色）
-  0: "bg-pink-50 text-pink-300",
-  1: "bg-pink-50 text-pink-300",
-  6: "bg-sky-50 text-sky-300",
-};
 const WISH_LABEL = { "1": "1", "2": "2", "×": "×" };
 
 const DOW_COLOR = {
-  0: "bg-pink-50 text-rose-600",   // 日
-  1: "bg-pink-50 text-rose-600",   // 月
-  6: "bg-sky-50 text-sky-600",     // 土
+  0: "bg-pink-50 text-rose-600",
+  1: "bg-pink-50 text-rose-600",
+  6: "bg-sky-50 text-sky-600",
 };
 
 export function DesiredShiftsTab({
@@ -29,9 +20,14 @@ export function DesiredShiftsTab({
   wishesByDate, setWishesByDate, confirmedByDate, setConfirmedByDate,
 }) {
   const [syncing, setSyncing] = useState(false);
-  // staffId -> { 'YYYY-MM-DD': '1'|'2'|'×' }
   const [allStaffWishes, setAllStaffWishes] = useState({});
   const loading = useRef(false);
+
+  // 出勤依頼モーダル
+  const [requestModal, setRequestModal] = useState(null); // { dateStr }
+  const [requestStaff, setRequestStaff] = useState("");
+  const [requestWish, setRequestWish] = useState("1");
+  const [sending, setSending] = useState(false);
 
   const validStaff = state.staff.filter((s) => s.staffId);
 
@@ -72,14 +68,37 @@ export function DesiredShiftsTab({
     }
   };
 
-  // 自動同期: 月が変わったら全スタッフ取得
   useEffect(() => {
     if (currentMonth && validStaff.length > 0) {
       syncAll();
     }
   }, [currentMonth]);
 
-  // 日付一覧を生成
+  // 出勤依頼送信
+  const sendWorkRequest = async () => {
+    if (!requestStaff || !requestModal?.dateStr) return;
+    const staffObj = validStaff.find((s) => s.staffId === requestStaff);
+    if (!staffObj) return;
+    setSending(true);
+    try {
+      const res = await callApi("sendWorkRequest", {
+        tenantId: staffObj.tenantId || "piste",
+        staffId: staffObj.staffId,
+        name: staffObj.name || "",
+        date: requestModal.dateStr,
+        wish: requestWish,
+      });
+      if (res?.ok) {
+        alert("出勤依頼を送信しました");
+        setRequestModal(null);
+      } else {
+        alert("送信失敗: " + (res?.error || "不明なエラー"));
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
   const [y, m] = currentMonth.split("-").map(Number);
   const { days } = monthDays(y, m - 1);
 
@@ -102,9 +121,9 @@ export function DesiredShiftsTab({
           <div className="text-lg font-semibold">{currentMonth}</div>
           <Button variant="outline" onClick={() => navigateMonth(1)} className="rounded-xl">翌月</Button>
           <div className="flex items-center gap-3 ml-4 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-sky-100 inline-block" />1: 9:30〜</span>
-            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-emerald-100 inline-block" />2: 10:00〜</span>
-            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-rose-100 inline-block" />×: 休</span>
+            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-sky-100 inline-block" />1: 9:30~</span>
+            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-emerald-100 inline-block" />2: 10:00~</span>
+            <span className="inline-flex items-center gap-1"><span className="w-4 h-4 rounded bg-amber-100 inline-block" />×: 休</span>
           </div>
         </div>
 
@@ -120,6 +139,7 @@ export function DesiredShiftsTab({
                     {s.name || s.staffId}
                   </th>
                 ))}
+                <th className="px-3 py-2 text-center font-semibold border-b whitespace-nowrap">依頼</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +147,6 @@ export function DesiredShiftsTab({
                 const dateStr = isoDate(d);
                 const dow = d.getDay();
                 const dowCls = DOW_COLOR[dow] || "";
-                // 火(2)〜金(5)で出勤者(1or2)が2人未満ならアラート
                 const isTueFri = dow >= 2 && dow <= 5;
                 const workCount = isTueFri
                   ? validStaff.filter((s) => {
@@ -162,6 +181,21 @@ export function DesiredShiftsTab({
                         </td>
                       );
                     })}
+                    <td className="px-2 py-1 border-b text-center">
+                      {isTueFri && (
+                        <button
+                          onClick={() => {
+                            setRequestModal({ dateStr });
+                            setRequestStaff("");
+                            setRequestWish("1");
+                          }}
+                          className="text-blue-500 hover:text-blue-700 p-1"
+                          title="出勤依頼を送信"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -169,6 +203,50 @@ export function DesiredShiftsTab({
           </table>
         </div>
       </CardContent>
+
+      {/* 出勤依頼モーダル */}
+      {requestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setRequestModal(null); }}>
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold mb-4">出勤依頼</h3>
+            <p className="text-sm text-slate-600 mb-4">日付: <span className="font-semibold">{requestModal.dateStr}</span></p>
+
+            <div className="space-y-3 mb-4">
+              <div>
+                <Label className="text-sm mb-1 block">スタッフ</Label>
+                <Select value={requestStaff} onValueChange={setRequestStaff}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="スタッフを選択" /></SelectTrigger>
+                  <SelectContent>
+                    {validStaff.map((s) => (
+                      <SelectItem key={s.staffId} value={s.staffId}>
+                        {s.name || s.staffId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm mb-1 block">シフト</Label>
+                <Select value={requestWish} onValueChange={setRequestWish}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 (9:30~)</SelectItem>
+                    <SelectItem value="2">2 (10:00~)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={sendWorkRequest} disabled={!requestStaff || sending} className="flex-1">
+                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                LINE で依頼送信
+              </Button>
+              <Button variant="outline" onClick={() => setRequestModal(null)}>閉じる</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

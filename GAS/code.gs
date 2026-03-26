@@ -103,6 +103,9 @@ function handle_(e, isGet) {
 
     if (t === "confirmshifts")      return handleConfirmShifts_(e, p);     // 管理
 
+    if (t === "sendworkrequest")    return handleSendWorkRequest_(e, p);   // 出勤依頼
+    if (t === "acceptworkrequest")  return handleAcceptWorkRequest_(e, p); // 出勤依頼承諾
+
     if (t === "getadminstate")      return handleGetAdminState_(e, p);
     if (t === "savestaff")          return handleSaveStaff_(e, p);
     if (t === "savedesiredshifts")  return handleSaveDesiredShifts_(e, p);
@@ -1056,4 +1059,98 @@ function resolveStaffByEmail_(emailParam) {
     }
   }
   return null;
+}
+
+/*************************
+ * 出勤依頼 送信
+ *************************/
+function handleSendWorkRequest_(e, p) {
+  var tid   = ztrim(String(p.tenantId || ""));
+  var sid   = ztrim(String(p.staffId || ""));
+  var name  = String(p.name || "");
+  var date  = String(p.date || "");
+  var wish  = String(p.wish || "1");
+
+  if (!tid || !sid || !date) return out_(e, { ok: false, error: "tenantId, staffId, date required" });
+
+  var uid = getLineUidByStaffId_(tid, sid);
+  if (!uid) return out_(e, { ok: false, error: "LINE未連携のスタッフです" });
+
+  // GAS WebApp URL を取得
+  var gasUrl = ScriptApp.getService().getUrl();
+
+  // 承諾リンク: GAS doGet で処理
+  var acceptParams = "type=acceptWorkRequest&tenantId=" + encodeURIComponent(tid)
+    + "&staffId=" + encodeURIComponent(sid) + "&name=" + encodeURIComponent(name)
+    + "&date=" + encodeURIComponent(date) + "&wish=" + encodeURIComponent(wish)
+    + "&action=accept";
+  var acceptUrl = gasUrl + "?" + acceptParams;
+
+  var cancelParams = "type=acceptWorkRequest&tenantId=" + encodeURIComponent(tid)
+    + "&staffId=" + encodeURIComponent(sid)
+    + "&date=" + encodeURIComponent(date)
+    + "&action=cancel";
+  var cancelUrl = gasUrl + "?" + cancelParams;
+
+  var wishLabel = wish === "1" ? "9:30〜" : wish === "2" ? "10:00〜" : wish;
+
+  // LINE Flex Message で送信
+  sendWorkRequestFlex_(uid, name, date, wishLabel, acceptUrl, cancelUrl);
+
+  return out_(e, { ok: true, sent: true });
+}
+
+/*************************
+ * 出勤依頼 承諾/キャンセル処理
+ *************************/
+function handleAcceptWorkRequest_(e, p) {
+  var tid    = ztrim(String(p.tenantId || ""));
+  var sid    = ztrim(String(p.staffId || ""));
+  var name   = String(p.name || "");
+  var date   = String(p.date || "");
+  var wish   = String(p.wish || "1");
+  var action = String(p.action || "");
+
+  if (action === "accept" && tid && sid && date) {
+    // 提出シフトに書き込み
+    var sh = getOrCreateSheetSafe_("提出シフト", ["テナントID","メール","名前","月","日付","希望","ステータス","タイムスタンプ"]);
+    var month = date.slice(0, 7);
+    var nowJst = jstNow_();
+    sh.getRange(sh.getLastRow() + 1, 1, 1, 8).setValues([[tid, sid, name, month, date, wish, "依頼承諾", nowJst]]);
+
+    // スタッフにLINE通知
+    var uid = getLineUidByStaffId_(tid, sid);
+    if (uid) sendLinePush_(uid, "✅ " + date + " の出勤依頼を承諾しました。\nシフト: " + wish);
+
+    // 管理者にもLINE通知
+    var adminUid = PropertiesService.getScriptProperties().getProperty("LINE_ADMIN_UID");
+    if (adminUid) sendLinePush_(adminUid, "【出勤依頼承諾】" + (name || sid) + "さんが " + date + " の出勤を承諾しました。");
+
+    // HTMLで結果表示
+    return HtmlService.createHtmlOutput(
+      "<html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+      + "<h2 style='color:#16a34a;'>✅ 承諾しました</h2>"
+      + "<p>" + date + " のシフトを承諾しました。</p>"
+      + "<p>このページを閉じてください。</p>"
+      + "</body></html>"
+    );
+  }
+
+  if (action === "cancel") {
+    var uid2 = getLineUidByStaffId_(tid, sid);
+    if (uid2) sendLinePush_(uid2, "❌ " + date + " の出勤依頼をお断りしました。");
+
+    var adminUid2 = PropertiesService.getScriptProperties().getProperty("LINE_ADMIN_UID");
+    if (adminUid2) sendLinePush_(adminUid2, "【出勤依頼辞退】" + (name || sid) + "さんが " + date + " の出勤依頼を辞退しました。");
+
+    return HtmlService.createHtmlOutput(
+      "<html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+      + "<h2 style='color:#dc2626;'>❌ お断りしました</h2>"
+      + "<p>" + date + " の出勤依頼をお断りしました。</p>"
+      + "<p>このページを閉じてください。</p>"
+      + "</body></html>"
+    );
+  }
+
+  return out_(e, { ok: false, error: "invalid action" });
 }

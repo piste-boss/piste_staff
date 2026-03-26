@@ -402,6 +402,98 @@ function sendShiftReminder3DaysBefore() {
   }
 }
 
+/** 出勤依頼 Flex Message 送信 */
+function sendWorkRequestFlex_(lineUid, staffName, date, wishLabel, acceptUrl, cancelUrl) {
+  if (!lineUid) return;
+  var token = getLineToken_();
+  if (!token) return;
+
+  var flexMsg = {
+    type: "flex",
+    altText: "【出勤依頼】" + date + " の出勤をお願いできますか？",
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#3b82f6",
+        paddingAll: "16px",
+        contents: [
+          { type: "text", text: "出勤依頼", color: "#ffffff", weight: "bold", size: "lg" }
+        ]
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        paddingAll: "20px",
+        contents: [
+          { type: "text", text: (staffName || "スタッフ") + "さん", weight: "bold", size: "md" },
+          {
+            type: "box", layout: "vertical", spacing: "sm", margin: "lg",
+            contents: [
+              {
+                type: "box", layout: "horizontal",
+                contents: [
+                  { type: "text", text: "日付", color: "#666666", size: "sm", flex: 2 },
+                  { type: "text", text: date, weight: "bold", size: "sm", flex: 5 }
+                ]
+              },
+              {
+                type: "box", layout: "horizontal",
+                contents: [
+                  { type: "text", text: "シフト", color: "#666666", size: "sm", flex: 2 },
+                  { type: "text", text: wishLabel, weight: "bold", size: "sm", flex: 5 }
+                ]
+              }
+            ]
+          },
+          { type: "text", text: "出勤可能でしたら「承諾」を押してください。", size: "xs", color: "#888888", margin: "lg", wrap: true }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "horizontal",
+        spacing: "md",
+        paddingAll: "16px",
+        contents: [
+          {
+            type: "button",
+            action: { type: "uri", label: "承諾", uri: acceptUrl },
+            style: "primary",
+            color: "#16a34a",
+            height: "sm"
+          },
+          {
+            type: "button",
+            action: { type: "uri", label: "キャンセル", uri: cancelUrl },
+            style: "secondary",
+            height: "sm"
+          }
+        ]
+      }
+    }
+  };
+
+  try {
+    var res = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+      },
+      payload: JSON.stringify({
+        to: lineUid,
+        messages: [flexMsg],
+      }),
+      muteHttpExceptions: true,
+    });
+    Logger.log("sendWorkRequestFlex_: status=" + res.getResponseCode());
+  } catch (e) {
+    Logger.log("sendWorkRequestFlex_: ERROR=" + String(e));
+  }
+}
+
 /** トークン取得 */
 function getLineToken_() {
   return PropertiesService.getScriptProperties().getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "";
