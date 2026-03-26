@@ -90,7 +90,7 @@ export function ConfirmedShiftsTab({
             <Select value={selectedStaff} onValueChange={setSelectedStaff}>
               <SelectTrigger className="w-[220px]"><SelectValue placeholder="スタッフ" /></SelectTrigger>
               <SelectContent>
-                {state.staff.map((s) => (
+                {state.staff.filter((s) => s.staffId).map((s) => (
                   <SelectItem key={s._rid || s.staffId} value={s.staffId}>
                     {s.name || s.staffId}
                   </SelectItem>
