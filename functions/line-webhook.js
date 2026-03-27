@@ -1,7 +1,7 @@
 /**
  * LINE Webhook プロキシ (Netlify Functions)
- * GAS は 302 リダイレクトで POST→GET 変換＆パラメータ消失する。
- * 対策: 先にリダイレクト先URLを取得し、そこにパラメータ付きで直接GETする。
+ * LINE → Netlify Function → GAS (GET + base64)
+ * タイムアウト対策: リダイレクトをfollowして直接送信
  */
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJVA6u5EpSKptrexvvqYh8jMSYiLIjprgXNOleAf2uWRbMyWg/exec";
@@ -9,6 +9,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJV
 exports.handler = async (event) => {
   console.log("[line-webhook] method:", event.httpMethod);
 
+  // LINE の検証リクエスト（GET）やbodyなしは即200返却
   if (event.httpMethod !== "POST" || !event.body) {
     return {
       statusCode: 200,
@@ -20,28 +21,28 @@ exports.handler = async (event) => {
   const body = event.body;
   console.log("[line-webhook] body:", body.slice(0, 200));
 
+  // LINEには先に200を返すためバックグラウンドで処理
+  // ただしNetlify Functionsではawaitしないと処理が切れるのでawaitする
   try {
-    // Step 1: GAS のリダイレクト先URL を取得（パラメータなし）
-    const res1 = await fetch(GAS_URL, { method: "GET", redirect: "manual" });
-    const redirectUrl = res1.headers.get("location");
-    console.log("[line-webhook] redirect url:", redirectUrl ? redirectUrl.slice(0, 120) : "NONE");
-
-    if (!redirectUrl) {
-      console.error("[line-webhook] no redirect url");
-      return { statusCode: 200, body: '{"ok":true}' };
-    }
-
-    // Step 2: リダイレクト先URLにパラメータ付きで直接 GET
     const encoded = Buffer.from(body, "utf-8").toString("base64");
-    const sep = redirectUrl.includes("?") ? "&" : "?";
-    const finalUrl = `${redirectUrl}${sep}lineWebhook=${encodeURIComponent(encoded)}`;
-    console.log("[line-webhook] final url length:", finalUrl.length);
+    const url = `${GAS_URL}?type=linewebhook&data=${encodeURIComponent(encoded)}`;
+    console.log("[line-webhook] sending to GAS, url length:", url.length);
 
-    const res2 = await fetch(finalUrl, { method: "GET", redirect: "follow" });
-    const text = await res2.text();
-    console.log("[line-webhook] GAS response:", text.slice(0, 300));
+    // redirect: "follow" で自動的にリダイレクト先に到達
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25秒タイムアウト
+
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const text = await res.text();
+    console.log("[line-webhook] GAS response status:", res.status, "body:", text.slice(0, 300));
   } catch (err) {
-    console.error("[line-webhook] error:", err);
+    console.error("[line-webhook] error:", err.name === "AbortError" ? "timeout (25s)" : err);
   }
 
   return {
