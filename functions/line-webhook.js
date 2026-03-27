@@ -1,7 +1,6 @@
 /**
  * LINE Webhook プロキシ (Netlify Functions)
  * LINE → Netlify Function → GAS (GET + base64)
- * タイムアウト対策: リダイレクトをfollowして直接送信
  */
 
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJVA6u5EpSKptrexvvqYh8jMSYiLIjprgXNOleAf2uWRbMyWg/exec";
@@ -9,28 +8,33 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzK4M1R53aYdoznEgnxVeJV
 exports.handler = async (event) => {
   console.log("[line-webhook] method:", event.httpMethod);
 
-  // LINE の検証リクエスト（GET）やbodyなしは即200返却
   if (event.httpMethod !== "POST" || !event.body) {
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: true }),
-    };
+    return { statusCode: 200, body: '{"ok":true}' };
   }
 
   const body = event.body;
   console.log("[line-webhook] body:", body.slice(0, 200));
 
-  // LINEには先に200を返すためバックグラウンドで処理
-  // ただしNetlify Functionsではawaitしないと処理が切れるのでawaitする
+  // LINE検証リクエスト（eventsが空）は即200返却
+  try {
+    const parsed = JSON.parse(body);
+    if (!parsed.events || parsed.events.length === 0) {
+      console.log("[line-webhook] verification request, returning 200 immediately");
+      return { statusCode: 200, body: '{"ok":true}' };
+    }
+  } catch (e) {
+    // パース失敗でもOK返却
+    return { statusCode: 200, body: '{"ok":true}' };
+  }
+
+  // 実際のWebhookイベントをGASに転送
   try {
     const encoded = Buffer.from(body, "utf-8").toString("base64");
     const url = `${GAS_URL}?type=linewebhook&data=${encodeURIComponent(encoded)}`;
     console.log("[line-webhook] sending to GAS, url length:", url.length);
 
-    // redirect: "follow" で自動的にリダイレクト先に到達
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000); // 25秒タイムアウト
+    const timeout = setTimeout(() => controller.abort(), 25000);
 
     const res = await fetch(url, {
       method: "GET",
@@ -45,9 +49,5 @@ exports.handler = async (event) => {
     console.error("[line-webhook] error:", err.name === "AbortError" ? "timeout (25s)" : err);
   }
 
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ok: true }),
-  };
+  return { statusCode: 200, body: '{"ok":true}' };
 };
