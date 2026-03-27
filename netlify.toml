@@ -7,6 +7,11 @@
 
 # admin アセットはそのまま配信（リダイレクトより先にファイルが存在すれば配信される）
 [[redirects]]
+  from = "/api/line-webhook"
+  to = "/.netlify/functions/line-webhook"
+  status = 200
+
+[[redirects]]
   from = "/admin"
   to = "/admin/dist/index.html"
   status = 200
