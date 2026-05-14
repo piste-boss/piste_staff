@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Loader2, RefreshCw, Send } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Send } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "./ui/select";
@@ -20,6 +20,7 @@ export function DesiredShiftsTab({
   wishesByDate, setWishesByDate, confirmedByDate, setConfirmedByDate,
 }) {
   const [syncing, setSyncing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [allStaffWishes, setAllStaffWishes] = useState({});
   const loading = useRef(false);
 
@@ -74,6 +75,65 @@ export function DesiredShiftsTab({
     }
   }, [currentMonth]);
 
+  const getConfirmItems = (staffId) => {
+    const wishes = allStaffWishes[staffId] || {};
+    return Object.entries(wishes)
+      .filter(([, wish]) => wish === "1" || wish === "2" || wish === "×")
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, wish]) => ({ date, wish }));
+  };
+
+  const confirmVisibleMonth = async () => {
+    if (confirming) return;
+
+    const targets = validStaff
+      .map((staff) => ({ staff, items: getConfirmItems(staff.staffId) }))
+      .filter(({ items }) => items.length > 0);
+
+    if (targets.length === 0) {
+      alert("確定できる提出シフトがありません。先に再同期してください。");
+      return;
+    }
+
+    const ok = window.confirm(`${currentMonth} の提出シフトを ${targets.length} 名分、確定シフトへ反映します。よろしいですか？`);
+    if (!ok) return;
+
+    setConfirming(true);
+    try {
+      const results = await Promise.all(
+        targets.map(async ({ staff, items }) => {
+          const res = await callApi("confirmShifts", {
+            tenantId: staff.tenantId || "piste",
+            staffId: staff.staffId,
+            name: staff.name || "",
+            month: currentMonth,
+            items,
+          });
+          return { staff, items, res };
+        })
+      );
+
+      const failed = results.filter(({ res }) => !res?.ok);
+      if (failed.length > 0) {
+        alert("一部の確定に失敗しました。\n" + failed.map(({ staff, res }) => `${staff.name || staff.staffId}: ${res?.error || "不明なエラー"}`).join("\n"));
+        return;
+      }
+
+      setConfirmedByDate((prev) => {
+        const next = { ...prev };
+        for (const { staff, items } of results) {
+          next[`${staff.staffId}|${currentMonth}`] = Object.fromEntries(items.map((it) => [it.date, it.wish]));
+        }
+        return next;
+      });
+
+      const saved = results.reduce((sum, { res }) => sum + Number(res?.saved || 0), 0);
+      alert(`シフトを確定しました（${results.length} 名 / ${saved} 件）。`);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   // 出勤依頼送信
   const sendWorkRequest = async () => {
     if (!requestStaff || !requestModal?.dateStr) return;
@@ -108,6 +168,10 @@ export function DesiredShiftsTab({
         <div className="flex items-center justify-between">
           <CardTitle>提出シフト一覧</CardTitle>
           <div className="flex items-center gap-2">
+            <Button size="sm" onClick={confirmVisibleMonth} disabled={syncing || confirming}>
+              {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              表示月を一括確定
+            </Button>
             <Button size="sm" variant="outline" onClick={syncAll} disabled={syncing}>
               {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               再同期
